@@ -18,7 +18,7 @@
 
 package com.volmit.adapt.content.skill;
 
-import com.fren_gor.ultimateAdvancementAPI.advancement.display.AdvancementFrameType;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
 import com.volmit.adapt.api.advancement.AdaptAdvancement;
 import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.skill.SimpleSkill;
@@ -29,6 +29,7 @@ import com.volmit.adapt.util.CustomModel;
 import com.volmit.adapt.util.J;
 import com.volmit.adapt.util.Localizer;
 import lombok.NoArgsConstructor;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
@@ -50,12 +51,12 @@ public class SkillHerbalism extends SimpleSkill<SkillHerbalism.Config> {
     private final Map<Player, Long> cooldown = new HashMap<>();
 
     public SkillHerbalism() {
-        super("herbalism", Localizer.dLocalize("skill", "herbalism", "icon"));
+        super("herbalism", Localizer.dLocalize("skill.herbalism.icon"));
         registerConfiguration(Config.class);
         setColor(C.GREEN);
         setInterval(3990);
-        setDescription(Localizer.dLocalize("skill", "herbalism", "description"));
-        setDisplayName(Localizer.dLocalize("skill", "herbalism", "name"));
+        setDescription(Localizer.dLocalize("skill.herbalism.description"));
+        setDisplayName(Localizer.dLocalize("skill.herbalism.name"));
         setIcon(Material.WHEAT);
         registerAdaptation(new HerbalismGrowthAura());
         registerAdaptation(new HerbalismReplant());
@@ -67,57 +68,135 @@ public class SkillHerbalism extends SimpleSkill<SkillHerbalism.Config> {
         registerAdaptation(new HerbalismTerralid());
         registerAdaptation(new HerbalismCraftableMushroomBlocks());
         registerAdaptation(new HerbalismCraftableCobweb());
+        registerAdaptation(new HerbalismSeedSower());
+        registerAdaptation(new HerbalismCompostCascade());
+        registerAdaptation(new HerbalismRootedFooting());
+        registerAdaptation(new HerbalismBeeShepherd());
+        registerAdaptation(new HerbalismSporeBloom());
         registerAdvancement(AdaptAdvancement.builder()
                 .icon(Material.COOKED_BEEF)
                 .key("challenge_eat_100")
-                .title(Localizer.dLocalize("advancement", "challenge_eat_100", "title"))
-                .description(Localizer.dLocalize("advancement", "challenge_eat_100", "description"))
+                .title(Localizer.dLocalize("advancement.challenge_eat_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_eat_100.description"))
                 .model(CustomModel.get(Material.COOKED_BEEF, "advancement", "herbalism", "challenge_eat_100"))
-                .frame(AdvancementFrameType.CHALLENGE)
+                .frame(AdaptAdvancementFrame.CHALLENGE)
                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                 .child(AdaptAdvancement.builder()
                         .icon(Material.COOKED_BEEF)
                         .key("challenge_eat_1000")
-                        .title(Localizer.dLocalize("advancement", "challenge_eat_1000", "title"))
-                        .description(Localizer.dLocalize("advancement", "challenge_eat_1000", "description"))
+                        .title(Localizer.dLocalize("advancement.challenge_eat_1000.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_eat_1000.description"))
                         .model(CustomModel.get(Material.COOKED_BEEF, "advancement", "herbalism", "challenge_eat_1000"))
-                        .frame(AdvancementFrameType.CHALLENGE)
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
                         .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                 .icon(Material.COOKED_BEEF)
                                 .key("challenge_eat_10000")
-                                .title(Localizer.dLocalize("advancement", "challenge_eat_10000", "title"))
-                                .description(Localizer.dLocalize("advancement", "challenge_eat_10000", "description"))
+                                .title(Localizer.dLocalize("advancement.challenge_eat_10000.title"))
+                                .description(Localizer.dLocalize("advancement.challenge_eat_10000.description"))
                                 .model(CustomModel.get(Material.COOKED_BEEF, "advancement", "herbalism", "challenge_eat_10000"))
-                                .frame(AdvancementFrameType.CHALLENGE)
+                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                                 .build())
                         .build())
                 .build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_eat_100").goal(100).stat("food.eaten").reward(getConfig().challengeEat100Reward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_eat_1000").goal(1000).stat("food.eaten").reward(getConfig().challengeEat1kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_eat_10000").goal(10000).stat("food.eaten").reward(getConfig().challengeEat1kReward).build());
+        registerMilestone("challenge_eat_100", "food.eaten", 100, getConfig().challengeEat100Reward);
+        registerMilestone("challenge_eat_1000", "food.eaten", 1000, getConfig().challengeEat1kReward);
+        registerMilestone("challenge_eat_10000", "food.eaten", 10000, getConfig().challengeEat1kReward);
 
 
         registerAdvancement(AdaptAdvancement.builder()
                 .icon(Material.COOKED_BEEF)
                 .key("challenge_harvest_100")
-                .title(Localizer.dLocalize("advancement", "challenge_harvest_100", "title"))
-                .description(Localizer.dLocalize("advancement", "challenge_harvest_100", "description"))
+                .title(Localizer.dLocalize("advancement.challenge_harvest_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_harvest_100.description"))
                 .model(CustomModel.get(Material.COOKED_BEEF, "advancement", "herbalism", "harvest_100"))
-                .frame(AdvancementFrameType.CHALLENGE)
+                .frame(AdaptAdvancementFrame.CHALLENGE)
                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                 .child(AdaptAdvancement.builder()
                         .icon(Material.COOKED_BEEF)
                         .key("challenge_harvest_1000")
-                        .title(Localizer.dLocalize("advancement", "challenge_harvest_1000", "title"))
-                        .description(Localizer.dLocalize("advancement", "challenge_harvest_1000", "description"))
+                        .title(Localizer.dLocalize("advancement.challenge_harvest_1000.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_harvest_1000.description"))
                         .model(CustomModel.get(Material.COOKED_BEEF, "advancement", "herbalism", "harvest_1000"))
-                        .frame(AdvancementFrameType.CHALLENGE)
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
                         .visibility(AdvancementVisibility.PARENT_GRANTED)
                         .build())
                 .build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_harvest_100").goal(100).stat("harvest.blocks").reward(getConfig().challengeHarvest100Reward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_harvest_1000").goal(1000).stat("harvest.blocks").reward(getConfig().challengeHarvest1kReward).build());
+        registerMilestone("challenge_harvest_100", "harvest.blocks", 100, getConfig().challengeHarvest100Reward);
+        registerMilestone("challenge_harvest_1000", "harvest.blocks", 1000, getConfig().challengeHarvest1kReward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WHEAT_SEEDS)
+                .key("challenge_plant_100")
+                .title(Localizer.dLocalize("advancement.challenge_plant_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_plant_100.description"))
+                .model(CustomModel.get(Material.WHEAT_SEEDS, "advancement", "herbalism", "challenge_plant_100"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.BEETROOT_SEEDS)
+                        .key("challenge_plant_1k")
+                        .title(Localizer.dLocalize("advancement.challenge_plant_1k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_plant_1k.description"))
+                        .model(CustomModel.get(Material.BEETROOT_SEEDS, "advancement", "herbalism", "challenge_plant_1k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .child(AdaptAdvancement.builder()
+                                .icon(Material.GOLDEN_CARROT)
+                                .key("challenge_plant_5k")
+                                .title(Localizer.dLocalize("advancement.challenge_plant_5k.title"))
+                                .description(Localizer.dLocalize("advancement.challenge_plant_5k.description"))
+                                .model(CustomModel.get(Material.GOLDEN_CARROT, "advancement", "herbalism", "challenge_plant_5k"))
+                                .frame(AdaptAdvancementFrame.CHALLENGE)
+                                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                                .build())
+                        .build())
+                .build());
+        registerMilestone("challenge_plant_100", "harvest.planted", 100, getConfig().challengePlant100Reward);
+        registerMilestone("challenge_plant_1k", "harvest.planted", 1000, getConfig().challengePlant1kReward);
+        registerMilestone("challenge_plant_5k", "harvest.planted", 5000, getConfig().challengePlant5kReward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.COMPOSTER)
+                .key("challenge_compost_50")
+                .title(Localizer.dLocalize("advancement.challenge_compost_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_compost_50.description"))
+                .model(CustomModel.get(Material.COMPOSTER, "advancement", "herbalism", "challenge_compost_50"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.BONE_MEAL)
+                        .key("challenge_compost_500")
+                        .title(Localizer.dLocalize("advancement.challenge_compost_500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_compost_500.description"))
+                        .model(CustomModel.get(Material.BONE_MEAL, "advancement", "herbalism", "challenge_compost_500"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_compost_50", "harvest.composted", 50, getConfig().challengeCompost50Reward);
+        registerMilestone("challenge_compost_500", "harvest.composted", 500, getConfig().challengeCompost500Reward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.SHEARS)
+                .key("challenge_shear_50")
+                .title(Localizer.dLocalize("advancement.challenge_shear_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_shear_50.description"))
+                .model(CustomModel.get(Material.SHEARS, "advancement", "herbalism", "challenge_shear_50"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.WHITE_WOOL)
+                        .key("challenge_shear_250")
+                        .title(Localizer.dLocalize("advancement.challenge_shear_250.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_shear_250.description"))
+                        .model(CustomModel.get(Material.WHITE_WOOL, "advancement", "herbalism", "challenge_shear_250"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_shear_50", "herbalism.sheared", 50, getConfig().challengeShear50Reward);
+        registerMilestone("challenge_shear_250", "herbalism.sheared", 250, getConfig().challengeShear250Reward);
     }
 
 
@@ -153,7 +232,10 @@ public class SkillHerbalism extends SimpleSkill<SkillHerbalism.Config> {
             return;
         }
         Player p = e.getPlayer();
-        shouldReturnForPlayer(e.getPlayer(), e, () -> xp(p, e.getEntity().getLocation(), getConfig().shearXP));
+        shouldReturnForPlayer(e.getPlayer(), e, () -> {
+            getPlayer(p).getData().addStat("herbalism.sheared", 1);
+            xp(p, e.getEntity().getLocation(), getConfig().shearXP);
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -223,10 +305,15 @@ public class SkillHerbalism extends SimpleSkill<SkillHerbalism.Config> {
     }
 
     private void handleComposterInteraction(PlayerInteractEvent e, Player p) {
-        Levelled c = ((Levelled) e.getClickedBlock().getBlockData());
-        int ol = c.getLevel();
+        Block b = e.getClickedBlock();
+        assert b != null;
+        if (!(b.getBlockData() instanceof Levelled oldData))
+            return;
+        int ol = oldData.getLevel();
         J.s(() -> {
-            int nl = ((Levelled) e.getClickedBlock().getBlockData()).getLevel();
+            if (!(b.getBlockData() instanceof Levelled newData))
+                return;
+            int nl = newData.getLevel();
             if (nl > ol || (ol > 0 && nl == 0)) {
                 xp(p, e.getClickedBlock().getLocation().clone().add(0.5, 0.5, 0.5), getConfig().composterBaseXP + (nl * getConfig().composterLevelXPMultiplier) + (nl == 0 ? getConfig().composterNonZeroLevelBonus : 5));
                 getPlayer(p).getData().addStat("harvest.composted", 1);
@@ -237,7 +324,7 @@ public class SkillHerbalism extends SimpleSkill<SkillHerbalism.Config> {
 
     @Override
     public void onTick() {
-
+        checkStatTrackersForOnlinePlayers();
     }
 
     @Override
@@ -247,18 +334,45 @@ public class SkillHerbalism extends SimpleSkill<SkillHerbalism.Config> {
 
     @NoArgsConstructor
     public static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         public boolean enabled = true;
-        public double harvestXpCooldown = 5000;
-        public double foodConsumeXP = 25;
-        public double shearXP = 25;
-        public double harvestPerAgeXP = 2.5;
-        public double plantCropSeedsXP = 2.5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Harvest Xp Cooldown for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double harvestXpCooldown = 3500;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Food Consume XP for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double foodConsumeXP = 35;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Shear XP for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double shearXP = 35;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Harvest Per Age XP for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double harvestPerAgeXP = 5.0;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Plant Crop Seeds XP for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double plantCropSeedsXP = 4.0;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Composter Base XP for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public double composterBaseXP = 2.5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Composter Level XPMultiplier for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public double composterLevelXPMultiplier = 1.25;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Composter Non Zero Level Bonus for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public double composterNonZeroLevelBonus = 25;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Eat100Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public double challengeEat100Reward = 1250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Eat1k Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public double challengeEat1kReward = 6250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Harvest100Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public double challengeHarvest100Reward = 1250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Harvest1k Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public double challengeHarvest1kReward = 6250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Plant100 Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double challengePlant100Reward = 1250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Plant1k Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double challengePlant1kReward = 6250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Plant5k Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double challengePlant5kReward = 25000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Compost50 Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double challengeCompost50Reward = 1250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Compost500 Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double challengeCompost500Reward = 6250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Shear50 Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double challengeShear50Reward = 1250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Shear250 Reward for the Herbalism skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double challengeShear250Reward = 6250;
     }
 }

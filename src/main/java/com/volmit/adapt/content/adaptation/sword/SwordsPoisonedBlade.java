@@ -20,12 +20,17 @@ package com.volmit.adapt.content.adaptation.sword;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.adaptation.sword.effects.DamagingBleedEffect;
 import com.volmit.adapt.content.item.ItemListings;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Form;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import de.slikey.effectlib.effect.BleedEffect;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
@@ -35,19 +40,25 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.potion.PotionEffectType;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public class SwordsPoisonedBlade extends SimpleAdaptation<SwordsPoisonedBlade.Config> {
     private final Map<Player, Long> cooldowns;
+    private final Set<UUID> poisonedEntities = new HashSet<>();
+    private final Map<UUID, Player> poisonSource = new HashMap<>();
 
     public SwordsPoisonedBlade() {
         super("sword-poison-blade");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("sword", "poisonedblade", "description"));
-        setDisplayName(Localizer.dLocalize("sword", "poisonedblade", "name"));
+        setDescription(Localizer.dLocalize("sword.poisoned_blade.description"));
+        setDisplayName(Localizer.dLocalize("sword.poisoned_blade.name"));
         setIcon(Material.GREEN_DYE);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
@@ -55,13 +66,31 @@ public class SwordsPoisonedBlade extends SimpleAdaptation<SwordsPoisonedBlade.Co
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         cooldowns = new HashMap<>();
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.SPIDER_EYE)
+                .key("challenge_swords_poison_500")
+                .title(Localizer.dLocalize("advancement.challenge_swords_poison_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_swords_poison_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_swords_poison_500", "swords.poisoned-blade.poison-applied", 500, 400);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.FERMENTED_SPIDER_EYE)
+                .key("challenge_swords_poison_kills_50")
+                .title(Localizer.dLocalize("advancement.challenge_swords_poison_kills_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_swords_poison_kills_50.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_swords_poison_kills_50", "swords.poisoned-blade.poison-kills", 50, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + C.GRAY + " " + Localizer.dLocalize("sword", "poisonedblade", "lore1"));
-        v.addLore(C.YELLOW + "* " + Form.duration(getDurationOfEffect(level), 1) + C.GRAY + " " + Localizer.dLocalize("sword", "poisonedblade", "lore2"));
-        v.addLore(C.RED + "* " + Form.duration(getCooldown(level), 1) + C.GRAY + " " + Localizer.dLocalize("sword", "poisonedblade", "lore3"));
+        v.addLore(C.GREEN + "+ " + C.GRAY + " " + Localizer.dLocalize("sword.poisoned_blade.lore1"));
+        v.addLore(C.YELLOW + "* " + Form.duration(getDurationOfEffect(level), 1) + C.GRAY + " " + Localizer.dLocalize("sword.poisoned_blade.lore2"));
+        v.addLore(C.RED + "* " + Form.duration(getCooldown(level), 1) + C.GRAY + " " + Localizer.dLocalize("sword.poisoned_blade.lore3"));
     }
 
     public long getCooldown(int level) {
@@ -105,7 +134,21 @@ public class SwordsPoisonedBlade extends SimpleAdaptation<SwordsPoisonedBlade.Co
                 blood.hurt = false;
                 blood.start();
             }
+            poisonedEntities.add(victim.getUniqueId());
+            poisonSource.put(victim.getUniqueId(), p);
+            getPlayer(p).getData().addStat("swords.poisoned-blade.poison-applied", 1);
 
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void on(EntityDeathEvent e) {
+        UUID victimId = e.getEntity().getUniqueId();
+        if (poisonedEntities.remove(victimId)) {
+            Player source = poisonSource.remove(victimId);
+            if (source != null && source.isOnline()) {
+                getPlayer(source).getData().addStat("swords.poisoned-blade.poison-kills", 1);
+            }
         }
     }
 
@@ -126,14 +169,23 @@ public class SwordsPoisonedBlade extends SimpleAdaptation<SwordsPoisonedBlade.Co
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Sword strikes apply poison.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown for the Swords Poisoned Blade adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public long cooldown = 5000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Effect Duration for the Swords Poisoned Blade adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public long effectDuration = 1000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.325;
     }
 }

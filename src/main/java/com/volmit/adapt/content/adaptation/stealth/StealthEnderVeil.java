@@ -1,9 +1,14 @@
 package com.volmit.adapt.content.adaptation.stealth;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import com.volmit.adapt.util.reflect.events.api.ReflectiveHandler;
 import com.volmit.adapt.util.reflect.events.api.entity.EndermanAttackPlayerEvent;
 import lombok.NoArgsConstructor;
@@ -19,14 +24,23 @@ public class StealthEnderVeil extends SimpleAdaptation<StealthEnderVeil.Config> 
     public StealthEnderVeil() {
         super("stealth-enderveil");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("stealth", "enderveil", "description"));
-        setDisplayName(Localizer.dLocalize("stealth", "enderveil", "name"));
+        setDescription(Localizer.dLocalize("stealth.ender_veil.description"));
+        setDisplayName(Localizer.dLocalize("stealth.ender_veil.name"));
         setIcon(Material.CARVED_PUMPKIN);
         setBaseCost(getConfig().baseCost);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
         setInterval(9182);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ENDER_EYE)
+                .key("challenge_stealth_ender_veil_200")
+                .title(Localizer.dLocalize("advancement.challenge_stealth_ender_veil_200.title"))
+                .description(Localizer.dLocalize("advancement.challenge_stealth_ender_veil_200.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_stealth_ender_veil_200", "stealth.ender-veil.stares-survived", 200, 300);
     }
 
     @Override
@@ -41,7 +55,7 @@ public class StealthEnderVeil extends SimpleAdaptation<StealthEnderVeil.Config> 
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("stealth", "enderveil",  "lore" + (level < 2 ? 1 : 2)));
+        v.addLore(C.GRAY + Localizer.dLocalize("stealth.ender_veil.lore" + (level < 2 ? 1 : 2)));
     }
 
     @Override
@@ -62,6 +76,7 @@ public class StealthEnderVeil extends SimpleAdaptation<StealthEnderVeil.Config> 
 
         if (getLevel(player) > 1 || player.isSneaking()) {
             event.setCancelled(true);
+            getPlayer(player).getData().addStat("stealth.ender-veil.stares-survived", 1);
         }
     }
 
@@ -74,16 +89,24 @@ public class StealthEnderVeil extends SimpleAdaptation<StealthEnderVeil.Config> 
 
         if (getLevel(player) > 1 || player.isSneaking()) {
             event.setCancelled(true);
+            getPlayer(player).getData().addStat("stealth.ender-veil.stares-survived", 1);
         }
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Prevent Enderman aggression without wearing a pumpkin.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 4;
-        double costFactor = 2.325;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 1.0;
     }
 }

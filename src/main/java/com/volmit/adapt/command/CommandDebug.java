@@ -2,7 +2,6 @@ package com.volmit.adapt.command;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.AdaptConfig;
-import com.volmit.adapt.util.J;
 import com.volmit.adapt.util.SoundPlayer;
 import com.volmit.adapt.util.command.FConst;
 import com.volmit.adapt.util.decree.DecreeExecutor;
@@ -12,6 +11,8 @@ import com.volmit.adapt.util.decree.annotations.Param;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+
+import java.util.List;
 
 @Decree(name = "debug", origin = DecreeOrigin.BOTH, description = "Adapt Debug Command", aliases = {"dev"})
 public class CommandDebug implements DecreeExecutor {
@@ -69,7 +70,7 @@ public class CommandDebug implements DecreeExecutor {
         }
 
         Player player = player();
-        J.a(() -> player.spawnParticle(particle, player.getLocation(), 10, 10));
+        player.spawnParticle(particle, player.getLocation(), 10, 10);
     }
 
     @Decree(name = "particle", origin = DecreeOrigin.PLAYER, description = "Summon a particle in front of you for testing!")
@@ -81,5 +82,32 @@ public class CommandDebug implements DecreeExecutor {
 
         SoundPlayer sp = SoundPlayer.of(player());
         sp.play(player().getLocation(), sound, 1, 1);
+    }
+
+    @Decree(description = "Show Adapt ticker hotspots")
+    public void perf(
+            @Param(description = "Top results to print", defaultValue = "12")
+            int top,
+            @Param(description = "Reset metrics after printing", defaultValue = "false")
+            boolean reset
+    ) {
+        if (!sender().hasPermission("adapt.idontknowwhatimdoingiswear")) {
+            FConst.error("You lack the Permission 'adapt.idontknowwhatimdoingiswear'").send(sender());
+            return;
+        }
+
+        List<String> lines = Adapt.instance.getTicker().topMetrics(top);
+        long windowMs = Adapt.instance.getTicker().getMetricsWindowMs();
+        FConst.success("Ticker window: " + windowMs + "ms").send(sender());
+        if (lines.isEmpty()) {
+            FConst.success("No tick metrics collected yet.").send(sender());
+        } else {
+            lines.forEach(line -> FConst.info(line).send(sender()));
+        }
+
+        if (reset) {
+            Adapt.instance.getTicker().resetMetrics();
+            FConst.success("Ticker metrics reset.").send(sender());
+        }
     }
 }

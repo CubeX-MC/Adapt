@@ -19,8 +19,14 @@
 package com.volmit.adapt.content.adaptation.axe;
 
 import com.volmit.adapt.Adapt;
+import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -38,21 +44,47 @@ public class AxeChop extends SimpleAdaptation<AxeChop.Config> {
     public AxeChop() {
         super("axe-chop");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("axe", "chop", "description"));
-        setDisplayName(Localizer.dLocalize("axe", "chop", "name"));
+        setDescription(Localizer.dLocalize("axe.chop.description"));
+        setDisplayName(Localizer.dLocalize("axe.chop.name"));
         setIcon(Material.IRON_AXE);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setInterval(6911);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_AXE)
+                .key("challenge_axe_chop_100")
+                .title(Localizer.dLocalize("advancement.challenge_axe_chop_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_axe_chop_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_AXE)
+                        .key("challenge_axe_chop_2500")
+                        .title(Localizer.dLocalize("advancement.challenge_axe_chop_2500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_axe_chop_2500.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.NETHERITE_AXE)
+                .key("challenge_axe_chop_one_swing")
+                .title(Localizer.dLocalize("advancement.challenge_axe_chop_one_swing.title"))
+                .description(Localizer.dLocalize("advancement.challenge_axe_chop_one_swing.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_axe_chop_100", "axe.chop.trees-felled", 100, 400);
+        registerMilestone("challenge_axe_chop_2500", "axe.chop.trees-felled", 2500, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + level + C.GRAY + " " + Localizer.dLocalize("axe", "chop", "lore1"));
-        v.addLore(C.YELLOW + "* " + Form.duration(getCooldownTime(getLevelPercent(level)) * 50D, 1) + C.GRAY + " " + Localizer.dLocalize("axe", "chop", "lore2"));
-        v.addLore(C.RED + "- " + getDamagePerBlock(getLevelPercent(level)) + C.GRAY + " " + Localizer.dLocalize("axe", "chop", "lore3"));
+        v.addLore(C.GREEN + "+ " + level + C.GRAY + " " + Localizer.dLocalize("axe.chop.lore1"));
+        v.addLore(C.YELLOW + "* " + Form.duration(getCooldownTime(getLevelPercent(level)) * 50D, 1) + C.GRAY + " " + Localizer.dLocalize("axe.chop.lore2"));
+        v.addLore(C.RED + "- " + getDamagePerBlock(getLevelPercent(level)) + C.GRAY + " " + Localizer.dLocalize("axe.chop.lore3"));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -71,10 +103,18 @@ public class AxeChop extends SimpleAdaptation<AxeChop.Config> {
                 e.setCancelled(true);
                 SoundPlayer spw = SoundPlayer.of(p.getWorld());
                 spw.play(p.getLocation(), Sound.ITEM_AXE_STRIP, 1.25f, 0.6f);
+                int logsChopped = 0;
                 for (int i = 0; i < getLevel(p); i++) {
                     if (breakStuff(e.getClickedBlock(), getRange(getLevel(p)), p)) {
+                        logsChopped++;
                         p.setCooldown(p.getInventory().getItemInMainHand().getType(), getCooldownTime(getLevelPercent(p)));
                         damageHand(p, getDamagePerBlock(getLevelPercent(p)));
+                    }
+                }
+                if (logsChopped > 0) {
+                    getPlayer(p).getData().addStat("axe.chop.trees-felled", 1);
+                    if (logsChopped >= 30 && AdaptConfig.get().isAdvancements() && !getPlayer(p).getData().isGranted("challenge_axe_chop_one_swing")) {
+                        getPlayer(p).getAdvancementHandler().grant("challenge_axe_chop_one_swing");
                     }
                 }
             }
@@ -139,17 +179,29 @@ public class AxeChop extends SimpleAdaptation<AxeChop.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Chop down trees by right-clicking the base log.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.35;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Range Level Multiplier for the Axe Chop adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int rangeLevelMultiplier = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Ticks Base for the Axe Chop adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double cooldownTicksBase = 15;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Ticks Inverse Level Multiplier for the Axe Chop adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double cooldownTicksInverseLevelMultiplier = 16;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Per Block Base for the Axe Chop adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damagePerBlockBase = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Per Block Inverse Level Multiplier for the Axe Chop adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damagePerBlockInverseLevelMultiplier = 4;
     }
 }

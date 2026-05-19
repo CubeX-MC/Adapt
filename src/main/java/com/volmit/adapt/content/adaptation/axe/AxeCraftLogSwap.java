@@ -19,21 +19,31 @@
 package com.volmit.adapt.content.adaptation.axe;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.inventory.ItemStack;
+import com.volmit.adapt.util.reflect.registries.Materials;
 
 public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
 
     public AxeCraftLogSwap() {
         super("axe-logswap");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("axe", "logswap", "description"));
-        setDisplayName(Localizer.dLocalize("axe", "logswap", "name"));
+        setDescription(Localizer.dLocalize("axe.log_swap.description"));
+        setDisplayName(Localizer.dLocalize("axe.log_swap.name"));
         setIcon(Material.MUDDY_MANGROVE_ROOTS);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
@@ -51,7 +61,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
-                .ingredient(Material.BIRCH_LOG).ingredient(Material.OAK_SAPLING)
+                .ingredient(Material.BIRCH_LOG)
+                .ingredient(Material.OAK_SAPLING)
                 .result(new ItemStack(Material.OAK_PLANKS, 1))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -63,7 +74,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
-                .ingredient(Material.BIRCH_LOG).ingredient(Material.ACACIA_SAPLING)
+                .ingredient(Material.BIRCH_LOG)
+                .ingredient(Material.ACACIA_SAPLING)
                 .result(new ItemStack(Material.ACACIA_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -75,7 +87,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
-                .ingredient(Material.BIRCH_LOG).ingredient(Material.DARK_OAK_SAPLING)
+                .ingredient(Material.BIRCH_LOG)
+                .ingredient(Material.DARK_OAK_SAPLING)
                 .result(new ItemStack(Material.DARK_OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -87,7 +100,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
-                .ingredient(Material.BIRCH_LOG).ingredient(Material.JUNGLE_SAPLING)
+                .ingredient(Material.BIRCH_LOG)
+                .ingredient(Material.JUNGLE_SAPLING)
                 .result(new ItemStack(Material.JUNGLE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -99,7 +113,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
                 .ingredient(Material.BIRCH_LOG)
-                .ingredient(Material.BIRCH_LOG).ingredient(Material.SPRUCE_SAPLING)
+                .ingredient(Material.BIRCH_LOG)
+                .ingredient(Material.SPRUCE_SAPLING)
                 .result(new ItemStack(Material.SPRUCE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -115,6 +130,36 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_PROPAGULE)
                 .result(new ItemStack(Material.MANGROVE_LOG, 8))
                 .build());
+        if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapbirchcherry")
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Materials.CHERRY_SAPLING)
+                    .result(new ItemStack(Materials.CHERRY_LOG, 8))
+                    .build());
+        }
+        if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapbirchpaleoak")
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Material.BIRCH_LOG)
+                    .ingredient(Materials.PALE_OAK_SAPLING)
+                    .result(new ItemStack(Materials.PALE_OAK_LOG, 8))
+                    .build());
+        }
 
         //Oak -> Types
         registerRecipe(AdaptRecipe.shapeless()
@@ -126,7 +171,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
-                .ingredient(Material.OAK_LOG).ingredient(Material.BIRCH_SAPLING)
+                .ingredient(Material.OAK_LOG)
+                .ingredient(Material.BIRCH_SAPLING)
                 .result(new ItemStack(Material.BIRCH_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -138,7 +184,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
-                .ingredient(Material.OAK_LOG).ingredient(Material.ACACIA_SAPLING)
+                .ingredient(Material.OAK_LOG)
+                .ingredient(Material.ACACIA_SAPLING)
                 .result(new ItemStack(Material.ACACIA_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -150,7 +197,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
-                .ingredient(Material.OAK_LOG).ingredient(Material.DARK_OAK_SAPLING)
+                .ingredient(Material.OAK_LOG)
+                .ingredient(Material.DARK_OAK_SAPLING)
                 .result(new ItemStack(Material.DARK_OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -162,7 +210,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
-                .ingredient(Material.OAK_LOG).ingredient(Material.JUNGLE_SAPLING)
+                .ingredient(Material.OAK_LOG)
+                .ingredient(Material.JUNGLE_SAPLING)
                 .result(new ItemStack(Material.JUNGLE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -174,7 +223,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
                 .ingredient(Material.OAK_LOG)
-                .ingredient(Material.OAK_LOG).ingredient(Material.SPRUCE_SAPLING)
+                .ingredient(Material.OAK_LOG)
+                .ingredient(Material.SPRUCE_SAPLING)
                 .result(new ItemStack(Material.SPRUCE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -190,6 +240,36 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_PROPAGULE)
                 .result(new ItemStack(Material.MANGROVE_LOG, 8))
                 .build());
+        if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapoakcherry")
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Materials.CHERRY_SAPLING)
+                    .result(new ItemStack(Materials.CHERRY_LOG, 8))
+                    .build());
+        }
+        if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapoakpaleoak")
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Material.OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_SAPLING)
+                    .result(new ItemStack(Materials.PALE_OAK_LOG, 8))
+                    .build());
+        }
 
         //Acacia -> Types
         registerRecipe(AdaptRecipe.shapeless()
@@ -201,7 +281,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
-                .ingredient(Material.ACACIA_LOG).ingredient(Material.BIRCH_SAPLING)
+                .ingredient(Material.ACACIA_LOG)
+                .ingredient(Material.BIRCH_SAPLING)
                 .result(new ItemStack(Material.BIRCH_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -213,7 +294,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
-                .ingredient(Material.ACACIA_LOG).ingredient(Material.OAK_SAPLING)
+                .ingredient(Material.ACACIA_LOG)
+                .ingredient(Material.OAK_SAPLING)
                 .result(new ItemStack(Material.OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -225,7 +307,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
-                .ingredient(Material.ACACIA_LOG).ingredient(Material.DARK_OAK_SAPLING)
+                .ingredient(Material.ACACIA_LOG)
+                .ingredient(Material.DARK_OAK_SAPLING)
                 .result(new ItemStack(Material.DARK_OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -237,7 +320,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
-                .ingredient(Material.ACACIA_LOG).ingredient(Material.JUNGLE_SAPLING)
+                .ingredient(Material.ACACIA_LOG)
+                .ingredient(Material.JUNGLE_SAPLING)
                 .result(new ItemStack(Material.JUNGLE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -249,7 +333,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
                 .ingredient(Material.ACACIA_LOG)
-                .ingredient(Material.ACACIA_LOG).ingredient(Material.SPRUCE_SAPLING)
+                .ingredient(Material.ACACIA_LOG)
+                .ingredient(Material.SPRUCE_SAPLING)
                 .result(new ItemStack(Material.SPRUCE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -265,6 +350,36 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_PROPAGULE)
                 .result(new ItemStack(Material.MANGROVE_LOG, 8))
                 .build());
+        if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapacaciacherry")
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Materials.CHERRY_SAPLING)
+                    .result(new ItemStack(Materials.CHERRY_LOG, 8))
+                    .build());
+        }
+        if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapacaciapaleoak")
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Material.ACACIA_LOG)
+                    .ingredient(Materials.PALE_OAK_SAPLING)
+                    .result(new ItemStack(Materials.PALE_OAK_LOG, 8))
+                    .build());
+        }
 
         //Dark Oak -> Types
         registerRecipe(AdaptRecipe.shapeless()
@@ -276,7 +391,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
-                .ingredient(Material.DARK_OAK_LOG).ingredient(Material.BIRCH_SAPLING)
+                .ingredient(Material.DARK_OAK_LOG)
+                .ingredient(Material.BIRCH_SAPLING)
                 .result(new ItemStack(Material.BIRCH_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -288,7 +404,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
-                .ingredient(Material.DARK_OAK_LOG).ingredient(Material.OAK_SAPLING)
+                .ingredient(Material.DARK_OAK_LOG)
+                .ingredient(Material.OAK_SAPLING)
                 .result(new ItemStack(Material.OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -300,7 +417,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
-                .ingredient(Material.DARK_OAK_LOG).ingredient(Material.ACACIA_SAPLING)
+                .ingredient(Material.DARK_OAK_LOG)
+                .ingredient(Material.ACACIA_SAPLING)
                 .result(new ItemStack(Material.ACACIA_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -312,7 +430,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
-                .ingredient(Material.DARK_OAK_LOG).ingredient(Material.JUNGLE_SAPLING)
+                .ingredient(Material.DARK_OAK_LOG)
+                .ingredient(Material.JUNGLE_SAPLING)
                 .result(new ItemStack(Material.JUNGLE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -324,7 +443,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
                 .ingredient(Material.DARK_OAK_LOG)
-                .ingredient(Material.DARK_OAK_LOG).ingredient(Material.SPRUCE_SAPLING)
+                .ingredient(Material.DARK_OAK_LOG)
+                .ingredient(Material.SPRUCE_SAPLING)
                 .result(new ItemStack(Material.SPRUCE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -340,6 +460,36 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_PROPAGULE)
                 .result(new ItemStack(Material.MANGROVE_LOG, 8))
                 .build());
+        if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapdarkoakcherry")
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Materials.CHERRY_SAPLING)
+                    .result(new ItemStack(Materials.CHERRY_LOG, 8))
+                    .build());
+        }
+        if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapdarkoakpaleoak")
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_SAPLING)
+                    .result(new ItemStack(Materials.PALE_OAK_LOG, 8))
+                    .build());
+        }
 
         //Jungle -> Types
         registerRecipe(AdaptRecipe.shapeless()
@@ -351,7 +501,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
-                .ingredient(Material.JUNGLE_LOG).ingredient(Material.BIRCH_SAPLING)
+                .ingredient(Material.JUNGLE_LOG)
+                .ingredient(Material.BIRCH_SAPLING)
                 .result(new ItemStack(Material.BIRCH_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -363,7 +514,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
-                .ingredient(Material.JUNGLE_LOG).ingredient(Material.OAK_SAPLING)
+                .ingredient(Material.JUNGLE_LOG)
+                .ingredient(Material.OAK_SAPLING)
                 .result(new ItemStack(Material.OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -375,7 +527,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
-                .ingredient(Material.JUNGLE_LOG).ingredient(Material.ACACIA_SAPLING)
+                .ingredient(Material.JUNGLE_LOG)
+                .ingredient(Material.ACACIA_SAPLING)
                 .result(new ItemStack(Material.ACACIA_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -387,7 +540,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
-                .ingredient(Material.JUNGLE_LOG).ingredient(Material.DARK_OAK_SAPLING)
+                .ingredient(Material.JUNGLE_LOG)
+                .ingredient(Material.DARK_OAK_SAPLING)
                 .result(new ItemStack(Material.DARK_OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -399,7 +553,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
                 .ingredient(Material.JUNGLE_LOG)
-                .ingredient(Material.JUNGLE_LOG).ingredient(Material.SPRUCE_SAPLING)
+                .ingredient(Material.JUNGLE_LOG)
+                .ingredient(Material.SPRUCE_SAPLING)
                 .result(new ItemStack(Material.SPRUCE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -415,6 +570,36 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_PROPAGULE)
                 .result(new ItemStack(Material.MANGROVE_LOG, 8))
                 .build());
+        if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapjunglecherry")
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Materials.CHERRY_SAPLING)
+                    .result(new ItemStack(Materials.CHERRY_LOG, 8))
+                    .build());
+        }
+        if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapjunglepaleoak")
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Material.JUNGLE_LOG)
+                    .ingredient(Materials.PALE_OAK_SAPLING)
+                    .result(new ItemStack(Materials.PALE_OAK_LOG, 8))
+                    .build());
+        }
 
         //Spruce -> Types
         registerRecipe(AdaptRecipe.shapeless()
@@ -426,7 +611,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
-                .ingredient(Material.SPRUCE_LOG).ingredient(Material.BIRCH_SAPLING)
+                .ingredient(Material.SPRUCE_LOG)
+                .ingredient(Material.BIRCH_SAPLING)
                 .result(new ItemStack(Material.BIRCH_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -438,7 +624,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
-                .ingredient(Material.SPRUCE_LOG).ingredient(Material.OAK_SAPLING)
+                .ingredient(Material.SPRUCE_LOG)
+                .ingredient(Material.OAK_SAPLING)
                 .result(new ItemStack(Material.OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -450,7 +637,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
-                .ingredient(Material.SPRUCE_LOG).ingredient(Material.ACACIA_SAPLING)
+                .ingredient(Material.SPRUCE_LOG)
+                .ingredient(Material.ACACIA_SAPLING)
                 .result(new ItemStack(Material.ACACIA_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -462,7 +650,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
-                .ingredient(Material.SPRUCE_LOG).ingredient(Material.DARK_OAK_SAPLING)
+                .ingredient(Material.SPRUCE_LOG)
+                .ingredient(Material.DARK_OAK_SAPLING)
                 .result(new ItemStack(Material.DARK_OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -474,7 +663,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
                 .ingredient(Material.SPRUCE_LOG)
-                .ingredient(Material.SPRUCE_LOG).ingredient(Material.JUNGLE_SAPLING)
+                .ingredient(Material.SPRUCE_LOG)
+                .ingredient(Material.JUNGLE_SAPLING)
                 .result(new ItemStack(Material.JUNGLE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -490,6 +680,36 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_PROPAGULE)
                 .result(new ItemStack(Material.MANGROVE_LOG, 8))
                 .build());
+        if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapsprucecherry")
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Materials.CHERRY_SAPLING)
+                    .result(new ItemStack(Materials.CHERRY_LOG, 8))
+                    .build());
+        }
+        if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapsprucepaleoak")
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Material.SPRUCE_LOG)
+                    .ingredient(Materials.PALE_OAK_SAPLING)
+                    .result(new ItemStack(Materials.PALE_OAK_LOG, 8))
+                    .build());
+        }
 
         //Mangrove -> Types
         registerRecipe(AdaptRecipe.shapeless()
@@ -501,7 +721,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
-                .ingredient(Material.MANGROVE_LOG).ingredient(Material.BIRCH_SAPLING)
+                .ingredient(Material.MANGROVE_LOG)
+                .ingredient(Material.BIRCH_SAPLING)
                 .result(new ItemStack(Material.BIRCH_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -513,7 +734,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
-                .ingredient(Material.MANGROVE_LOG).ingredient(Material.OAK_SAPLING)
+                .ingredient(Material.MANGROVE_LOG)
+                .ingredient(Material.OAK_SAPLING)
                 .result(new ItemStack(Material.OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -525,7 +747,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
-                .ingredient(Material.MANGROVE_LOG).ingredient(Material.ACACIA_SAPLING)
+                .ingredient(Material.MANGROVE_LOG)
+                .ingredient(Material.ACACIA_SAPLING)
                 .result(new ItemStack(Material.ACACIA_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -537,7 +760,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
-                .ingredient(Material.MANGROVE_LOG).ingredient(Material.DARK_OAK_SAPLING)
+                .ingredient(Material.MANGROVE_LOG)
+                .ingredient(Material.DARK_OAK_SAPLING)
                 .result(new ItemStack(Material.DARK_OAK_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -549,7 +773,8 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
-                .ingredient(Material.MANGROVE_LOG).ingredient(Material.JUNGLE_SAPLING)
+                .ingredient(Material.MANGROVE_LOG)
+                .ingredient(Material.JUNGLE_SAPLING)
                 .result(new ItemStack(Material.JUNGLE_LOG, 8))
                 .build());
         registerRecipe(AdaptRecipe.shapeless()
@@ -561,17 +786,262 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
                 .ingredient(Material.MANGROVE_LOG)
-                .ingredient(Material.MANGROVE_LOG).ingredient(Material.SPRUCE_SAPLING)
+                .ingredient(Material.MANGROVE_LOG)
+                .ingredient(Material.SPRUCE_SAPLING)
                 .result(new ItemStack(Material.SPRUCE_LOG, 8))
                 .build());
+        if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapmangrovecherry")
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Materials.CHERRY_SAPLING)
+                    .result(new ItemStack(Materials.CHERRY_LOG, 8))
+                    .build());
+        }
+        if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapmangrovepaleoak")
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Material.MANGROVE_LOG)
+                    .ingredient(Materials.PALE_OAK_SAPLING)
+                    .result(new ItemStack(Materials.PALE_OAK_LOG, 8))
+                    .build());
+        }
 
+        //Cherry -> Types
+        if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapcherrybirch")
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Material.BIRCH_SAPLING)
+                    .result(new ItemStack(Material.BIRCH_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapcherryoak")
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Material.OAK_SAPLING)
+                    .result(new ItemStack(Material.OAK_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapcherryacacia")
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Material.ACACIA_SAPLING)
+                    .result(new ItemStack(Material.ACACIA_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapcherrydarkoak")
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Material.DARK_OAK_SAPLING)
+                    .result(new ItemStack(Material.DARK_OAK_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapcherryjungle")
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Material.JUNGLE_SAPLING)
+                    .result(new ItemStack(Material.JUNGLE_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swapcherryspruce")
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Materials.CHERRY_LOG)
+                    .ingredient(Material.SPRUCE_SAPLING)
+                    .result(new ItemStack(Material.SPRUCE_LOG, 8))
+                    .build());
+            if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+                registerRecipe(AdaptRecipe.shapeless()
+                        .key("axe-swapcherrypaleoak")
+                        .ingredient(Materials.CHERRY_LOG)
+                        .ingredient(Materials.CHERRY_LOG)
+                        .ingredient(Materials.CHERRY_LOG)
+                        .ingredient(Materials.CHERRY_LOG)
+                        .ingredient(Materials.CHERRY_LOG)
+                        .ingredient(Materials.CHERRY_LOG)
+                        .ingredient(Materials.CHERRY_LOG)
+                        .ingredient(Materials.CHERRY_LOG)
+                        .ingredient(Materials.PALE_OAK_SAPLING)
+                        .result(new ItemStack(Materials.PALE_OAK_LOG, 8))
+                        .build());
+            }
+        }
+
+        //Pale Oak -> Types
+        if (Materials.PALE_OAK_LOG != null && Materials.PALE_OAK_SAPLING != null) {
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swappaleoakbirch")
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Material.BIRCH_SAPLING)
+                    .result(new ItemStack(Material.BIRCH_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swappaleoakoak")
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Material.OAK_SAPLING)
+                    .result(new ItemStack(Material.OAK_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swappaleoakacacia")
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Material.ACACIA_SAPLING)
+                    .result(new ItemStack(Material.ACACIA_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swappaleoakdarkoak")
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Material.DARK_OAK_SAPLING)
+                    .result(new ItemStack(Material.DARK_OAK_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swappaleoakjungle")
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Material.JUNGLE_SAPLING)
+                    .result(new ItemStack(Material.JUNGLE_LOG, 8))
+                    .build());
+            registerRecipe(AdaptRecipe.shapeless()
+                    .key("axe-swappaleoakspruce")
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Materials.PALE_OAK_LOG)
+                    .ingredient(Material.SPRUCE_SAPLING)
+                    .result(new ItemStack(Material.SPRUCE_LOG, 8))
+                    .build());
+            if (Materials.CHERRY_LOG != null && Materials.CHERRY_SAPLING != null) {
+                registerRecipe(AdaptRecipe.shapeless()
+                        .key("axe-swappaleoakcherry")
+                        .ingredient(Materials.PALE_OAK_LOG)
+                        .ingredient(Materials.PALE_OAK_LOG)
+                        .ingredient(Materials.PALE_OAK_LOG)
+                        .ingredient(Materials.PALE_OAK_LOG)
+                        .ingredient(Materials.PALE_OAK_LOG)
+                        .ingredient(Materials.PALE_OAK_LOG)
+                        .ingredient(Materials.PALE_OAK_LOG)
+                        .ingredient(Materials.PALE_OAK_LOG)
+                        .ingredient(Materials.CHERRY_SAPLING)
+                        .result(new ItemStack(Materials.CHERRY_LOG, 8))
+                        .build());
+            }
+        }
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.OAK_SAPLING)
+                .key("challenge_axe_log_swap_500")
+                .title(Localizer.dLocalize("advancement.challenge_axe_log_swap_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_axe_log_swap_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_axe_log_swap_500", "axe.log-swap.conversions", 500, 400);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("axe", "logswap", "lore1"));
+        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("axe.log_swap.lore1"));
     }
 
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void on(CraftItemEvent e) {
+        if (e.isCancelled()) {
+            return;
+        }
+        if (!(e.getWhoClicked() instanceof Player p) || !hasAdaptation(p)) {
+            return;
+        }
+        if (e.getRecipe() instanceof org.bukkit.inventory.ShapelessRecipe recipe && recipe.getKey().getNamespace().equals("adapt") && recipe.getKey().getKey().startsWith("axe-swap")) {
+            getPlayer(p).getData().addStat("axe.log-swap.conversions", 1);
+        }
+    }
 
     @Override
     public void onTick() {
@@ -588,12 +1058,19 @@ public class AxeCraftLogSwap extends SimpleAdaptation<AxeCraftLogSwap.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Convert log types using a sapling in a crafting table.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

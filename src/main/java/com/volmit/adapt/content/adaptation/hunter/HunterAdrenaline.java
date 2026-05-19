@@ -19,10 +19,15 @@
 package com.volmit.adapt.content.adaptation.hunter;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Form;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -33,20 +38,37 @@ public class HunterAdrenaline extends SimpleAdaptation<HunterAdrenaline.Config> 
     public HunterAdrenaline() {
         super("hunter-adrenaline");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("hunter", "adrenaline", "description"));
-        setDisplayName(Localizer.dLocalize("hunter", "adrenaline", "name"));
+        setDescription(Localizer.dLocalize("hunter.adrenaline.description"));
+        setDisplayName(Localizer.dLocalize("hunter.adrenaline.name"));
         setIcon(Material.LEATHER_HELMET);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         setInterval(1911);
-
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_SWORD)
+                .key("challenge_hunter_adrenaline_100")
+                .title(Localizer.dLocalize("advancement.challenge_hunter_adrenaline_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_hunter_adrenaline_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_SWORD)
+                        .key("challenge_hunter_adrenaline_2500")
+                        .title(Localizer.dLocalize("advancement.challenge_hunter_adrenaline_2500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_hunter_adrenaline_2500.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_hunter_adrenaline_100", "hunter.adrenaline.low-health-kills", 100, 400);
+        registerMilestone("challenge_hunter_adrenaline_2500", "hunter.adrenaline.low-health-kills", 2500, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Form.pc(getDamage(level), 0) + C.GRAY + " " + Localizer.dLocalize("hunter", "adrenaline", "lore1"));
+        v.addLore(C.GREEN + "+ " + Form.pc(getDamage(level), 0) + C.GRAY + " " + Localizer.dLocalize("hunter.adrenaline.lore1"));
     }
 
     private double getDamage(int level) {
@@ -68,6 +90,7 @@ public class HunterAdrenaline extends SimpleAdaptation<HunterAdrenaline.Config> 
 
             damageMax *= (1D - hpp);
             e.setDamage(e.getDamage() * (damageMax + 1D));
+            getPlayer(p).getData().addStat("hunter.adrenaline.low-health-kills", 1);
         }
     }
 
@@ -87,14 +110,23 @@ public class HunterAdrenaline extends SimpleAdaptation<HunterAdrenaline.Config> 
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Deal more melee damage the lower your health is.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 8;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Base for the Hunter Adrenaline adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageBase = 0.12;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Factor for the Hunter Adrenaline adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageFactor = 0.21;
     }
 }

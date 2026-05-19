@@ -18,15 +18,23 @@
 
 package com.volmit.adapt.content.skill;
 
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.skill.SimpleSkill;
 import com.volmit.adapt.api.version.Version;
+import com.volmit.adapt.api.world.AdaptStatTracker;
+import com.volmit.adapt.content.adaptation.chronos.ChronosInstantRecall;
 import com.volmit.adapt.content.adaptation.rift.*;
 import com.volmit.adapt.util.C;
+import com.volmit.adapt.util.CustomModel;
 import com.volmit.adapt.util.Localizer;
 import com.volmit.adapt.util.M;
-import com.volmit.adapt.util.reflect.enums.Attributes;
-import com.volmit.adapt.util.reflect.enums.EntityTypes;
+import com.volmit.adapt.util.collection.KMap;
+import com.volmit.adapt.util.reflect.registries.Attributes;
+import com.volmit.adapt.util.reflect.registries.EntityTypes;
 import lombok.NoArgsConstructor;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -37,17 +45,14 @@ import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class SkillRift extends SimpleSkill<SkillRift.Config> {
-    private final Map<Player, Long> lasttp;
+    private final KMap<Player, Long> lasttp;
 
     public SkillRift() {
-        super("rift", Localizer.dLocalize("skill", "rift", "icon"));
+        super("rift", Localizer.dLocalize("skill.rift.icon"));
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("skill", "rift", "description"));
-        setDisplayName(Localizer.dLocalize("skill", "rift", "name"));
+        setDescription(Localizer.dLocalize("skill.rift.description"));
+        setDisplayName(Localizer.dLocalize("skill.rift.name"));
         setColor(C.DARK_PURPLE);
         setInterval(1154);
         setIcon(Material.ENDER_EYE);
@@ -58,7 +63,128 @@ public class SkillRift extends SimpleSkill<SkillRift.Config> {
         registerAdaptation(new RiftBlink());
         registerAdaptation(new RiftDescent());
         registerAdaptation(new RiftVisage());
-        lasttp = new HashMap<>();
+        registerAdaptation(new RiftEnderTaglock());
+        registerAdaptation(new RiftInflatedPocketDimension());
+        registerAdaptation(new RiftVoidMagnet());
+        lasttp = new KMap<>();
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ENDER_PEARL)
+                .key("challenge_rift_50")
+                .title(Localizer.dLocalize("advancement.challenge_rift_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_50.description"))
+                .model(CustomModel.get(Material.ENDER_PEARL, "advancement", "rift", "challenge_rift_50"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.ENDER_EYE)
+                        .key("challenge_rift_500")
+                        .title(Localizer.dLocalize("advancement.challenge_rift_500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_rift_500.description"))
+                        .model(CustomModel.get(Material.ENDER_EYE, "advancement", "rift", "challenge_rift_500"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .child(AdaptAdvancement.builder()
+                                .icon(Material.END_CRYSTAL)
+                                .key("challenge_rift_5k")
+                                .title(Localizer.dLocalize("advancement.challenge_rift_5k.title"))
+                                .description(Localizer.dLocalize("advancement.challenge_rift_5k.description"))
+                                .model(CustomModel.get(Material.END_CRYSTAL, "advancement", "rift", "challenge_rift_5k"))
+                                .frame(AdaptAdvancementFrame.CHALLENGE)
+                                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                                .build())
+                        .build())
+                .build());
+        registerMilestone("challenge_rift_50", "rift.teleports", 50, getConfig().challengeRiftReward);
+        registerMilestone("challenge_rift_500", "rift.teleports", 500, getConfig().challengeRiftReward * 2);
+        registerMilestone("challenge_rift_5k", "rift.teleports", 5000, getConfig().challengeRiftReward * 5);
+
+        // Chain 2 - Ender Pearl Throws
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ENDER_PEARL)
+                .key("challenge_rift_pearls_50")
+                .title(Localizer.dLocalize("advancement.challenge_rift_pearls_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_pearls_50.description"))
+                .model(CustomModel.get(Material.ENDER_PEARL, "advancement", "rift", "challenge_rift_pearls_50"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.ENDER_EYE)
+                        .key("challenge_rift_pearls_500")
+                        .title(Localizer.dLocalize("advancement.challenge_rift_pearls_500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_rift_pearls_500.description"))
+                        .model(CustomModel.get(Material.ENDER_EYE, "advancement", "rift", "challenge_rift_pearls_500"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_rift_pearls_50", "rift.ender.pearls", 50, getConfig().challengeRiftReward);
+        registerMilestone("challenge_rift_pearls_500", "rift.ender.pearls", 500, getConfig().challengeRiftReward * 2);
+
+        // Chain 3 - Enderman Damage
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ENDER_PEARL)
+                .key("challenge_rift_enderman_50")
+                .title(Localizer.dLocalize("advancement.challenge_rift_enderman_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_enderman_50.description"))
+                .model(CustomModel.get(Material.ENDER_PEARL, "advancement", "rift", "challenge_rift_enderman_50"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.END_STONE)
+                        .key("challenge_rift_enderman_500")
+                        .title(Localizer.dLocalize("advancement.challenge_rift_enderman_500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_rift_enderman_500.description"))
+                        .model(CustomModel.get(Material.END_STONE, "advancement", "rift", "challenge_rift_enderman_500"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_rift_enderman_50", "rift.enderman.kills", 50, getConfig().challengeRiftReward);
+        registerMilestone("challenge_rift_enderman_500", "rift.enderman.kills", 500, getConfig().challengeRiftReward * 2);
+
+        // Chain 4 - Dragon Damage
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.DRAGON_BREATH)
+                .key("challenge_rift_dragon_500")
+                .title(Localizer.dLocalize("advancement.challenge_rift_dragon_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_dragon_500.description"))
+                .model(CustomModel.get(Material.DRAGON_BREATH, "advancement", "rift", "challenge_rift_dragon_500"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DRAGON_HEAD)
+                        .key("challenge_rift_dragon_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_rift_dragon_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_rift_dragon_5k.description"))
+                        .model(CustomModel.get(Material.DRAGON_HEAD, "advancement", "rift", "challenge_rift_dragon_5k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_rift_dragon_500", "rift.dragon.damage", 500, getConfig().challengeRiftReward);
+        registerMilestone("challenge_rift_dragon_5k", "rift.dragon.damage", 5000, getConfig().challengeRiftReward * 2);
+
+        // Chain 5 - End Crystal Destruction
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.END_CRYSTAL)
+                .key("challenge_rift_crystal_10")
+                .title(Localizer.dLocalize("advancement.challenge_rift_crystal_10.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_crystal_10.description"))
+                .model(CustomModel.get(Material.END_CRYSTAL, "advancement", "rift", "challenge_rift_crystal_10"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.BEACON)
+                        .key("challenge_rift_crystal_100")
+                        .title(Localizer.dLocalize("advancement.challenge_rift_crystal_100.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_rift_crystal_100.description"))
+                        .model(CustomModel.get(Material.BEACON, "advancement", "rift", "challenge_rift_crystal_100"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_rift_crystal_10", "rift.crystals.destroyed", 10, getConfig().challengeRiftReward);
+        registerMilestone("challenge_rift_crystal_100", "rift.crystals.destroyed", 100, getConfig().challengeRiftReward * 2);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -67,9 +193,14 @@ public class SkillRift extends SimpleSkill<SkillRift.Config> {
             return;
         }
         Player p = e.getPlayer();
+        if (ChronosInstantRecall.isRecallTeleportSuppressed(p)) {
+            return;
+        }
+
         shouldReturnForPlayer(e.getPlayer(), e, () -> {
+            getPlayer(p).getData().addStat("rift.teleports", 1);
             if (!lasttp.containsKey(p)) {
-                xpSilent(p, getConfig().teleportXP);
+                xpSilent(p, getConfig().teleportXP, "rift:teleport");
                 lasttp.put(p, M.ms());
             }
         });
@@ -85,9 +216,10 @@ public class SkillRift extends SimpleSkill<SkillRift.Config> {
         }
         shouldReturnForPlayer(p, e, () -> {
             if (e.getEntity() instanceof EnderPearl) {
-                xp(p, getConfig().throwEnderpearlXP);
+                xp(p, getConfig().throwEnderpearlXP, "rift:throw:ender-pearl");
+                getPlayer(p).getData().addStat("rift.ender.pearls", 1);
             } else if (e.getEntity() instanceof EnderSignal) {
-                xp(p, getConfig().throwEnderEyeXP);
+                xp(p, getConfig().throwEnderEyeXP, "rift:throw:ender-eye");
             }
         });
     }
@@ -103,9 +235,20 @@ public class SkillRift extends SimpleSkill<SkillRift.Config> {
                 default -> 0;
             };
             double xp = multiplier * Math.min(damage, baseHealth);
-            if (xp > 0) xp(p, xp);
+            String rewardKey = switch (entity.getType()) {
+                case ENDERMAN -> "rift:damage:enderman";
+                case ENDERMITE -> "rift:damage:endermite";
+                case ENDER_DRAGON -> "rift:damage:ender-dragon";
+                default -> "rift:damage:other";
+            };
+            if (xp > 0) xp(p, xp, rewardKey);
+            if (entity.getType() == EntityType.ENDERMAN) {
+                getPlayer(p).getData().addStat("rift.enderman.kills", 1);
+            } else if (entity.getType() == EntityType.ENDER_DRAGON) {
+                getPlayer(p).getData().addStat("rift.dragon.damage", damage);
+            }
         } else if (entity.getType() == EntityTypes.ENDER_CRYSTAL) {
-            xp(p, getConfig().damageEndCrystalXP);
+            xp(p, getConfig().damageEndCrystalXP, "rift:damage:end-crystal");
         }
     }
 
@@ -125,7 +268,10 @@ public class SkillRift extends SimpleSkill<SkillRift.Config> {
     public void on(EntityDeathEvent e) {
         if (e.getEntity() instanceof EnderCrystal && e.getEntity().getKiller() != null) {
             Player p = e.getEntity().getKiller();
-            shouldReturnForPlayer(p, () -> xp(e.getEntity().getKiller(), getConfig().destroyEndCrystalXP));
+            shouldReturnForPlayer(p, () -> {
+                xp(e.getEntity().getKiller(), getConfig().destroyEndCrystalXP, "rift:kill:end-crystal");
+                getPlayer(p).getData().addStat("rift.crystals.destroyed", 1);
+            });
         }
     }
 
@@ -147,6 +293,7 @@ public class SkillRift extends SimpleSkill<SkillRift.Config> {
                 }
             });
         }
+        checkStatTrackersForOnlinePlayers();
     }
 
     @Override
@@ -156,15 +303,27 @@ public class SkillRift extends SimpleSkill<SkillRift.Config> {
 
     @NoArgsConstructor
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
-        double destroyEndCrystalXP = 350;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Destroy End Crystal XP for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double destroyEndCrystalXP = 250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage End Crystal XP for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageEndCrystalXP = 110;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Enderman XPMultiplier for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageEndermanXPMultiplier = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Endermite XPMultiplier for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageEndermiteXPMultiplier = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Enderdragon XPMultiplier for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageEnderdragonXPMultiplier = 8;
-        double throwEnderpearlXP = 105;
-        double throwEnderEyeXP = 45;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Throw Enderpearl XP for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double throwEnderpearlXP = 65;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Throw Ender Eye XP for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double throwEnderEyeXP = 30;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Teleport XP for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double teleportXP = 15;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Teleport XPCooldown for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double teleportXPCooldown = 60000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Rift Reward for the Rift skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double challengeRiftReward = 500;
     }
 }

@@ -31,20 +31,18 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import static art.arcane.amulet.MagicalSugar.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public interface DecreeSystem extends CommandExecutor, TabCompleter {
     KList<DecreeParameterHandler<?>> handlers = Adapt.initialize("com.volmit.adapt.util.decree.handlers", null).kConvert((i) -> (DecreeParameterHandler<?>) i);
 
-    static List<String> enhanceArgs(String[] args) {
+    static KList<String> enhanceArgs(String[] args) {
         return enhanceArgs(args, true);
     }
 
-    static List<String> enhanceArgs(String[] args, boolean trim) {
-        List<String> a = new ArrayList<>();
+    static KList<String> enhanceArgs(String[] args, boolean trim) {
+        KList<String> a = new KList<>();
 
         if (args.length == 0) {
             return a;
@@ -138,7 +136,8 @@ public interface DecreeSystem extends CommandExecutor, TabCompleter {
     @Nullable
     @Override
     default List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
-        List<String> enhanced = new ArrayList<>(List.of(args));
+        Adapt.verbose("Received Tab Complete from %s for %s".formatted(sender.getName(), "/" + alias + String.join(" ", args)));
+        KList<String> enhanced = new KList<>(args);
         KList<String> v = getRoot().tabComplete(enhanced, enhanced.toString(" "));
         v.removeDuplicates();
 
@@ -152,28 +151,27 @@ public interface DecreeSystem extends CommandExecutor, TabCompleter {
 
     @Override
     default boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        Adapt.verbose("Received Command from %s: /%s".formatted(sender.getName(), label + String.join(" ", args)));
         if (!sender.hasPermission("adapt.main")) {
             sender.sendMessage("You lack the Permission 'adapt.main'");
             return true;
         }
 
-        J.a(() -> {
-            if (!call(new VolmitSender(sender), args)) {
-                if (sender instanceof Player p) {
-                    SoundPlayer sp = SoundPlayer.of(p);
-                    sp.play(p.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.77f, 0.25f);
-                    sp.play(p.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.2f, 0.45f);
-                }
-
-                sender.sendMessage(C.RED + "Unknown Adapt Command");
-            } else {
-                if (sender instanceof Player p) {
-                    SoundPlayer sp = SoundPlayer.of(p);
-                    sp.play(p.getLocation(), Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 0.77f, 1.65f);
-                    sp.play(p.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.125f, 2.99f);
-                }
+        if (!call(new VolmitSender(sender), args)) {
+            if (sender instanceof Player p) {
+                SoundPlayer sp = SoundPlayer.of(p);
+                sp.play(p.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.77f, 0.25f);
+                sp.play(p.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.2f, 0.45f);
             }
-        });
+
+            sender.sendMessage(C.RED + "Unknown Adapt Command");
+        } else {
+            if (sender instanceof Player p) {
+                SoundPlayer sp = SoundPlayer.of(p);
+                sp.play(p.getLocation(), Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 0.77f, 1.65f);
+                sp.play(p.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.125f, 2.99f);
+            }
+        }
         return true;
     }
 }

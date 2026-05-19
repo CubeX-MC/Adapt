@@ -21,10 +21,17 @@ package com.volmit.adapt.content.adaptation.rift;
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.BoundEnderPearl;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import manifold.rt.api.util.Pair;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -38,23 +45,25 @@ import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import us.lynuxcraft.deadsilenceiv.advancedchests.AdvancedChestsAPI;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.volmit.adapt.api.adaptation.chunk.ChunkLoading.loadChunkAsync;
 
 public class RiftAccess extends SimpleAdaptation<RiftAccess.Config> {
-    private final Map<Location, List<InventoryView>> activeViewsMap = new ConcurrentHashMap<>();
-
+    private final Map<Pair<ChunkPos, Location>, List<InventoryView>> activeViewsMap = new ConcurrentHashMap<>();
+    private final Map<ChunkPos, AtomicInteger> tickets = new ConcurrentHashMap<>();
 
     public RiftAccess() {
         super("rift-access");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("rift", "remoteaccess", "description"));
-        setDisplayName(Localizer.dLocalize("rift", "remoteaccess", "name"));
+        setDescription(Localizer.dLocalize("rift.remote_access.description"));
+        setDisplayName(Localizer.dLocalize("rift.remote_access.name"));
         setMaxLevel(1);
         setIcon(Material.NETHER_STAR);
         setBaseCost(getConfig().baseCost);
@@ -67,13 +76,31 @@ public class RiftAccess extends SimpleAdaptation<RiftAccess.Config> {
                 .ingredient(Material.COMPASS)
                 .result(BoundEnderPearl.io.withData(new BoundEnderPearl.Data(null)))
                 .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.CHEST)
+                .key("challenge_rift_access_100")
+                .title(Localizer.dLocalize("advancement.challenge_rift_access_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_access_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.ENDER_CHEST)
+                        .key("challenge_rift_access_2500")
+                        .title(Localizer.dLocalize("advancement.challenge_rift_access_2500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_rift_access_2500.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_rift_access_100", "rift.access.remote-opens", 100, 300);
+        registerMilestone("challenge_rift_access_2500", "rift.access.remote-opens", 2500, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.ITALIC + Localizer.dLocalize("rift", "remoteaccess", "lore1"));
-        v.addLore(C.ITALIC + Localizer.dLocalize("rift", "remoteaccess", "lore2"));
-        v.addLore(C.ITALIC + Localizer.dLocalize("rift", "remoteaccess", "lore3"));
+        v.addLore(C.ITALIC + Localizer.dLocalize("rift.remote_access.lore1"));
+        v.addLore(C.ITALIC + Localizer.dLocalize("rift.remote_access.lore2"));
+        v.addLore(C.ITALIC + Localizer.dLocalize("rift.remote_access.lore3"));
     }
 
 
@@ -137,7 +164,7 @@ public class RiftAccess extends SimpleAdaptation<RiftAccess.Config> {
 
     private void linkPearl(Player p, Block block, PlayerInteractEvent event) {
         event.setCancelled(true);
-        if (getConfig().showParticles) {
+        if (areParticlesEnabled()) {
             vfxCuboidOutline(block, Particle.REVERSE_PORTAL);
         }
         ItemStack hand = p.getInventory().getItemInMainHand();
@@ -167,28 +194,30 @@ public class RiftAccess extends SimpleAdaptation<RiftAccess.Config> {
                 Adapt.verbose("Opening AdvancedChests GUI");
             } else if (b.getState() instanceof InventoryHolder holder) {
                 InventoryView view = p.openInventory(holder.getInventory());
-                activeViewsMap.computeIfAbsent(b.getLocation(), k -> new ArrayList<>()).add(view);
+                if (view == null) return;
+                activeViewsMap.computeIfAbsent(Pair.make(new ChunkPos(chunk).add(), b.getLocation()), k -> new ArrayList<>()).add(view);
             }
             sp.play(p.getLocation(), Sound.PARTICLE_SOUL_ESCAPE, 1f, 0.10f);
             sp.play(p.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 1f, 0.10f);
+            getPlayer(p).getData().addStat("rift.access.remote-opens", 1);
         });
     }
 
     @Override
     public void onTick() {
-        J.s(this::checkActiveViews);
+        checkActiveViews();
     }
 
     private void checkActiveViews() {
-        Iterator<Map.Entry<Location, List<InventoryView>>> mapIterator = activeViewsMap.entrySet().iterator();
+        Iterator<Map.Entry<Pair<ChunkPos, Location>, List<InventoryView>>> mapIterator = activeViewsMap.entrySet().iterator();
         while (mapIterator.hasNext()) {
-            Map.Entry<Location, List<InventoryView>> entry = mapIterator.next();
+            Map.Entry<Pair<ChunkPos, Location>, List<InventoryView>> entry = mapIterator.next();
             removeInvalidViews(entry);
             removeEntryIfViewsEmpty(mapIterator, entry);
         }
     }
 
-    private void removeInvalidViews(Map.Entry<Location, List<InventoryView>> entry) {
+    private void removeInvalidViews(Map.Entry<Pair<ChunkPos, Location>, List<InventoryView>> entry) {
         List<InventoryView> views = entry.getValue();
         for (int ii = views.size() - 1; ii >= 0; ii--) {
             InventoryView i = views.get(ii);
@@ -203,10 +232,11 @@ public class RiftAccess extends SimpleAdaptation<RiftAccess.Config> {
         return !i.getPlayer().getOpenInventory().equals(i) || (location == null || !isStorage(location.getBlock().getBlockData()));
     }
 
-    private void removeEntryIfViewsEmpty(Iterator<Map.Entry<Location, List<InventoryView>>> mapIterator, Map.Entry<Location, List<InventoryView>> entry) {
+    private void removeEntryIfViewsEmpty(Iterator<Map.Entry<Pair<ChunkPos, Location>, List<InventoryView>>> mapIterator, Map.Entry<Pair<ChunkPos, Location>, List<InventoryView>> entry) {
         List<InventoryView> views = entry.getValue();
         if (views.isEmpty()) {
             mapIterator.remove();
+            entry.getKey().getFirst().remove();
         }
     }
 
@@ -272,12 +302,55 @@ public class RiftAccess extends SimpleAdaptation<RiftAccess.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Craft a Reliquary Portkey to access marked containers remotely.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Rift Access adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 15;
+    }
+
+    @EqualsAndHashCode
+    private class ChunkPos {
+        @EqualsAndHashCode.Exclude
+        private final WeakReference<World> world;
+        private final String name;
+        private final int x, z;
+
+        private ChunkPos(Chunk chunk) {
+            this.world = new WeakReference<>(chunk.getWorld());
+            this.name = chunk.getWorld().getName();
+            this.x = chunk.getX();
+            this.z = chunk.getZ();
+        }
+
+        public ChunkPos add() {
+            World world = this.world.get();
+            if (world == null) return this;
+            if (tickets.computeIfAbsent(this, k -> new AtomicInteger()).getAndIncrement() == 0)
+                world.addPluginChunkTicket(x, z, Adapt.instance);
+            return this;
+        }
+
+        public void remove() {
+            World world = this.world.get();
+            if (world == null) {
+                tickets.remove(this);
+                return;
+            }
+            if (tickets.computeIfAbsent(this, k -> new AtomicInteger()).decrementAndGet() <= 0) {
+                world.removePluginChunkTicket(x, z, Adapt.instance);
+                world.unloadChunkRequest(x, z);
+                tickets.remove(this);
+            }
+        }
     }
 }

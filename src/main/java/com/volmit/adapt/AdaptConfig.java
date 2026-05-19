@@ -18,11 +18,9 @@
 
 package com.volmit.adapt;
 
-import com.google.gson.Gson;
 import com.volmit.adapt.api.xp.Curves;
-import com.volmit.adapt.util.IO;
-import com.volmit.adapt.util.JSONObject;
 import com.volmit.adapt.util.redis.RedisConfig;
+import com.volmit.adapt.util.config.ConfigFileSupport;
 import lombok.Getter;
 import lombok.Setter;
 import org.bukkit.Material;
@@ -37,7 +35,7 @@ import java.util.Map;
 @Getter
 public class AdaptConfig {
     private static AdaptConfig config = null;
-    private boolean hotReload = false;
+    private static final Object CONFIG_LOCK = new Object();
     public boolean debug = false;
     public boolean autoUpdateCheck = true;
     public boolean autoUpdateLanguage = true;
@@ -53,10 +51,10 @@ public class AdaptConfig {
     private boolean metrics = true;
     private String language = "en_US";
     private String fallbackLanguageDontChangeUnlessYouKnowWhatYouAreDoing = "en_US";
-    private Curves xpCurve = Curves.XL3L7;
+    private Curves xpCurve = Curves.ADAPT_BALANCED;
     private double playerXpPerSkillLevelUpBase = 489;
     private double playerXpPerSkillLevelUpLevelMultiplier = 44;
-    private double powerPerLevel = 0.73;
+    private double powerPerLevel = 0.65;
     private boolean hardcoreResetOnPlayerDeath = false;
     private boolean hardcoreNoRefunds = false;
     private boolean loginBonus = true;
@@ -75,9 +73,13 @@ public class AdaptConfig {
     private boolean actionbarNotifyXp = true;
     private boolean actionbarNotifyLevel = true;
     private boolean unlearnAllButton = false;
+    private Effects effects = new Effects();
+    private FarmPrevention farmPrevention = new FarmPrevention();
+    private AdaptationXp adaptationXp = new AdaptationXp();
     private RedisConfig redis = new RedisConfig();
     private SqlSettings sql = new SqlSettings();
     private Protector protectorSupport = new Protector();
+    private Map<String, List<String>> adaptationUsageConflicts = defaultAdaptationUsageConflicts();
     private Map<String, Map<String, Boolean>> protectionOverrides = Map.of(
             "adaptation-name", Map.of(
                     "WorldGuard", true
@@ -88,31 +90,43 @@ public class AdaptConfig {
     private boolean verbose = false;
 
     public static AdaptConfig get() {
-        if (config == null) {
-            AdaptConfig dummy = new AdaptConfig();
-            File l = Adapt.instance.getDataFile("adapt", "adapt.json");
-
-
-            if (!l.exists()) {
-                try {
-                    IO.writeAll(l, new JSONObject(new Gson().toJson(dummy)).toString(4));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    config = dummy;
-                    return dummy;
-                }
-            }
-
+        synchronized (CONFIG_LOCK) {
             try {
-                config = new Gson().fromJson(IO.readAll(l), AdaptConfig.class);
-                IO.writeAll(l, new JSONObject(new Gson().toJson(config)).toString(4));
-            } catch (IOException e) {
+                if (config == null) {
+                    config = loadConfig(new AdaptConfig(), true);
+                }
+            } catch (Throwable e) {
                 e.printStackTrace();
                 config = new AdaptConfig();
             }
-        }
 
-        return config;
+            return config;
+        }
+    }
+
+    public static boolean reload() {
+        synchronized (CONFIG_LOCK) {
+            try {
+                config = loadConfig(config == null ? new AdaptConfig() : config, false);
+                return true;
+            } catch (Throwable e) {
+                return false;
+            }
+        }
+    }
+
+    private static AdaptConfig loadConfig(AdaptConfig fallback, boolean overwriteOnFailure) throws IOException {
+        File canonicalFile = Adapt.instance.getDataFile("adapt", "adapt.toml");
+        File legacyFile = Adapt.instance.getDataFile("adapt", "adapt.json");
+        return ConfigFileSupport.load(
+                canonicalFile,
+                legacyFile,
+                AdaptConfig.class,
+                fallback,
+                overwriteOnFailure,
+                "core-config",
+                "Created missing config [adapt/adapt.toml] from defaults."
+        );
     }
 
     @Getter
@@ -169,4 +183,47 @@ public class AdaptConfig {
             return f;
         }
     }
+
+    @Getter
+    public static class FarmPrevention {
+        private boolean enabled = true;
+        private boolean perActivityTracking = true;
+        private long skillRecoveryMillis = 180000;
+        private long activityRecoveryMillis = 300000;
+        private long activityStateTtlMillis = 1800000;
+        private double skillBasePressure = 1.0;
+        private double skillXpPressure = 0.02;
+        private double skillDecayCurve = 14.0;
+        private double skillFloorMultiplier = 0.08;
+        private double activityBasePressure = 1.0;
+        private double activityXpPressure = 0.03;
+        private double activityDecayCurve = 9.0;
+        private double activityFloorMultiplier = 0.12;
+        private double crossSkillRecoveryFactor = 0.9;
+    }
+
+    @Getter
+    public static class Effects {
+        private boolean particlesEnabled = true;
+        private boolean soundsEnabled = true;
+        private Map<String, Boolean> adaptationParticleOverrides = Map.of(
+                "adaptation-name", true
+        );
+        private Map<String, Boolean> skillParticleOverrides = Map.of(
+                "skill-name", true
+        );
+    }
+
+    @Getter
+    public static class AdaptationXp {
+        private boolean usageBaselineEnabled = true;
+        private double usageBaselineXp = 0.8;
+        private double usageBaselineXpPerLevel = 0.18;
+        private long usageBaselineCooldownMillis = 12000;
+    }
+
+    private static Map<String, List<String>> defaultAdaptationUsageConflicts() {
+        return new HashMap<>();
+    }
+
 }

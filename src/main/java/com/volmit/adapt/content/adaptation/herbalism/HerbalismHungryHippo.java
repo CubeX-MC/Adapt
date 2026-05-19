@@ -19,11 +19,16 @@
 package com.volmit.adapt.content.adaptation.herbalism;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.ItemListings;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
 import com.volmit.adapt.util.SoundPlayer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -38,19 +43,28 @@ public class HerbalismHungryHippo extends SimpleAdaptation<HerbalismHungryHippo.
     public HerbalismHungryHippo() {
         super("herbalism-hippo");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("herbalism", "hippo", "description"));
-        setDisplayName(Localizer.dLocalize("herbalism", "hippo", "name"));
+        setDescription(Localizer.dLocalize("herbalism.hippo.description"));
+        setDisplayName(Localizer.dLocalize("herbalism.hippo.name"));
         setIcon(Material.POTATO);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(8111);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.GOLDEN_APPLE)
+                .key("challenge_herbalism_hippo_500")
+                .title(Localizer.dLocalize("advancement.challenge_herbalism_hippo_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_herbalism_hippo_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_herbalism_hippo_500", "herbalism.hungry-hippo.bonus-saturation", 500, 400);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ (" + (2 + level) + C.GRAY + " + " + Localizer.dLocalize("herbalism", "hippo", "lore1"));
+        v.addLore(C.GREEN + "+ (" + (2 + level) + C.GRAY + " + " + Localizer.dLocalize("herbalism.hippo.lore1"));
     }
 
     @EventHandler(priority = EventPriority.NORMAL)
@@ -67,6 +81,7 @@ public class HerbalismHungryHippo extends SimpleAdaptation<HerbalismHungryHippo.
             p.setFoodLevel(p.getFoodLevel() + 2 + getLevel(p));
             sp.play(p.getLocation(), Sound.BLOCK_POINTED_DRIPSTONE_LAND, 1, 0.25f);
             vfxFastRing(p.getLocation().add(0, 0.25, 0), 2, Color.GREEN);
+            getPlayer(p).getData().addStat("herbalism.hungry-hippo.bonus-saturation", 2 + getLevel(p));
             xp(p, 5);
         }
     }
@@ -88,12 +103,19 @@ public class HerbalismHungryHippo extends SimpleAdaptation<HerbalismHungryHippo.
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Consuming food gives you more saturation.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 8;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.75;
     }
 }

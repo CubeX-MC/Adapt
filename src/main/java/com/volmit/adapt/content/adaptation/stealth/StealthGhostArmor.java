@@ -19,10 +19,15 @@
 package com.volmit.adapt.content.adaptation.stealth;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.version.IAttribute;
 import com.volmit.adapt.api.version.Version;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
-import com.volmit.adapt.util.reflect.enums.Attributes;
+import com.volmit.adapt.util.config.ConfigDescription;
+import com.volmit.adapt.util.reflect.registries.Attributes;
 import lombok.NoArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -42,20 +47,38 @@ public class StealthGhostArmor extends SimpleAdaptation<StealthGhostArmor.Config
     public StealthGhostArmor() {
         super("stealth-ghost-armor");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("stealth", "ghostarmor", "description"));
-        setDisplayName(Localizer.dLocalize("stealth", "ghostarmor", "name"));
-        setIcon(Material.NETHERITE_CHESTPLATE);
+        setDescription(Localizer.dLocalize("stealth.ghost_armor.description"));
+        setDisplayName(Localizer.dLocalize("stealth.ghost_armor.name"));
+        setIcon(Material.CHAINMAIL_HELMET);
         setInterval(5353);
         setBaseCost(getConfig().baseCost);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.LEATHER_CHESTPLATE)
+                .key("challenge_stealth_ghost_100")
+                .title(Localizer.dLocalize("advancement.challenge_stealth_ghost_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_stealth_ghost_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.CHAINMAIL_CHESTPLATE)
+                        .key("challenge_stealth_ghost_500")
+                        .title(Localizer.dLocalize("advancement.challenge_stealth_ghost_500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_stealth_ghost_500.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_stealth_ghost_100", "stealth.ghost-armor.armor-consumed", 100, 300);
+        registerMilestone("challenge_stealth_ghost_500", "stealth.ghost-armor.armor-consumed", 500, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Form.f(getMaxArmorPoints(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("stealth", "ghostarmor", "lore1"));
-        v.addLore(C.GREEN + "+ " + Form.f(getMaxArmorPerTick(getLevelPercent(level)), 1) + C.GRAY + " " + Localizer.dLocalize("stealth", "ghostarmor", "lore2"));
+        v.addLore(C.GREEN + "+ " + Form.f(getMaxArmorPoints(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("stealth.ghost_armor.lore1"));
+        v.addLore(C.GREEN + "+ " + Form.f(getMaxArmorPerTick(getLevelPercent(level)), 1) + C.GRAY + " " + Localizer.dLocalize("stealth.ghost_armor.lore2"));
     }
 
     public double getMaxArmorPoints(double factor) {
@@ -68,7 +91,8 @@ public class StealthGhostArmor extends SimpleAdaptation<StealthGhostArmor.Config
 
     @Override
     public void onTick() {
-        for (Player p : Bukkit.getOnlinePlayers()) {
+        for (com.volmit.adapt.api.world.AdaptPlayer adaptPlayer : getServer().getOnlineAdaptPlayerSnapshot()) {
+            Player p = adaptPlayer.getPlayer();
             var attribute = Version.get().getAttribute(p, Attributes.GENERIC_ARMOR);
 
             if (!hasAdaptation(p)) {
@@ -101,6 +125,7 @@ public class StealthGhostArmor extends SimpleAdaptation<StealthGhostArmor.Config
             // Check if 2.5 * e.getDamage() is greater than 10 if so just set it to 10 otherwise use the value of 2.5 * e.getDamage()
             int damageXP = (int) Math.min(10, 2.5 * e.getDamage());
             xp(p,damageXP );
+            getPlayer(p).getData().addStat("stealth.ghost-armor.armor-consumed", 1);
             J.s(() -> {
                 var attribute = Version.get().getAttribute(p, Attributes.GENERIC_ARMOR);
                 if (attribute == null) return;
@@ -120,16 +145,27 @@ public class StealthGhostArmor extends SimpleAdaptation<StealthGhostArmor.Config
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Slowly build armor when not taking damage, consumed on the next hit.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Armor for the Stealth Ghost Armor adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int maxArmor = 16;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Min Armor for the Stealth Ghost Armor adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int minArmor = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Armor Per Tick for the Stealth Ghost Armor adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int maxArmorPerTick = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Min Armor Per Tick for the Stealth Ghost Armor adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int minArmorPerTick = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.335;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
     }
 }

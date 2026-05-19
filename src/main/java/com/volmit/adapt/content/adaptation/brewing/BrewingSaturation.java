@@ -19,15 +19,25 @@
 package com.volmit.adapt.content.adaptation.brewing;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.data.WorldData;
 import com.volmit.adapt.api.potion.BrewingRecipe;
 import com.volmit.adapt.api.potion.PotionBuilder;
+import com.volmit.adapt.api.world.AdaptStatTracker;
+import com.volmit.adapt.content.matter.BrewingStandOwner;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
-import com.volmit.adapt.util.reflect.enums.PotionTypes;
+import com.volmit.adapt.util.reflect.registries.PotionTypes;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Color;
 import org.bukkit.Material;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.potion.PotionEffectType;
 
 
@@ -35,8 +45,8 @@ public class BrewingSaturation extends SimpleAdaptation<BrewingSaturation.Config
     public BrewingSaturation() {
         super("brewing-saturation");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("brewing", "saturation", "description"));
-        setDisplayName(Localizer.dLocalize("brewing", "saturation", "name"));
+        setDescription(Localizer.dLocalize("brewing.saturation.description"));
+        setDisplayName(Localizer.dLocalize("brewing.saturation.name"));
         setIcon(Material.BAKED_POTATO);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
@@ -48,7 +58,7 @@ public class BrewingSaturation extends SimpleAdaptation<BrewingSaturation.Config
                 .brewingTime(320)
                 .fuelCost(16)
                 .ingredient(Material.BAKED_POTATO)
-                .basePotion(PotionBuilder.vanilla(PotionBuilder.Type.REGULAR, PotionTypes.REGEN, false, false))
+                .basePotion(PotionBuilder.vanilla(PotionBuilder.Type.REGULAR, PotionTypes.REGEN))
                 .result(PotionBuilder.of(PotionBuilder.Type.REGULAR)
                         .setName("Bottled Saturation")
                         .setColor(Color.ORANGE)
@@ -60,21 +70,40 @@ public class BrewingSaturation extends SimpleAdaptation<BrewingSaturation.Config
                 .brewingTime(320)
                 .fuelCost(32)
                 .ingredient(Material.HAY_BLOCK)
-                .basePotion(PotionBuilder.vanilla(PotionBuilder.Type.REGULAR, PotionTypes.REGEN, false, false))
+                .basePotion(PotionBuilder.vanilla(PotionBuilder.Type.REGULAR, PotionTypes.REGEN))
                 .result(PotionBuilder.of(PotionBuilder.Type.REGULAR)
                         .setName("Bottled Saturation 2")
                         .setColor(Color.ORANGE)
                         .addEffect(PotionEffectType.SATURATION, 1, 8, true, true, true)
                         .build())
                 .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.GOLDEN_CARROT)
+                .key("challenge_brewing_saturation_25")
+                .title(Localizer.dLocalize("advancement.challenge_brewing_saturation_25.title"))
+                .description(Localizer.dLocalize("advancement.challenge_brewing_saturation_25.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_brewing_saturation_25", "brewing.saturation.potions-brewed", 25, 300);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("brewing", "saturation", "lore1"));
-        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("brewing", "saturation", "lore2"));
+        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("brewing.saturation.lore1"));
+        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("brewing.saturation.lore2"));
     }
 
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void on(BrewEvent e) {
+        if (e.isCancelled()) {
+            return;
+        }
+        BrewingStandOwner owner = WorldData.of(e.getBlock().getWorld()).get(e.getBlock(), BrewingStandOwner.class);
+        if (owner != null) {
+            getServer().peekData(owner.getOwner()).addStat("brewing.saturation.potions-brewed", 1);
+        }
+    }
 
     @Override
     public void onTick() {
@@ -92,12 +121,19 @@ public class BrewingSaturation extends SimpleAdaptation<BrewingSaturation.Config
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Brew a Potion of Saturation from Regen Potion and Baked Potato.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
     }
 }

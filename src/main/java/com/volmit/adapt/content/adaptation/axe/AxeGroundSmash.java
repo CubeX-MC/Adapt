@@ -18,43 +18,63 @@
 
 package com.volmit.adapt.content.adaptation.axe;
 
+import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class AxeGroundSmash extends SimpleAdaptation<AxeGroundSmash.Config> {
-    private final List<Integer> holds = new ArrayList<>();
-
     public AxeGroundSmash() {
         super("axe-ground-smash");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("axe", "groundsmash", "description"));
-        setDisplayName(Localizer.dLocalize("axe", "groundsmash", "name"));
+        setDescription(Localizer.dLocalize("axe.ground_smash.description"));
+        setDisplayName(Localizer.dLocalize("axe.ground_smash.name"));
         setIcon(Material.NETHERITE_AXE);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setInterval(4333);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_AXE)
+                .key("challenge_axe_ground_smash_500")
+                .title(Localizer.dLocalize("advancement.challenge_axe_ground_smash_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_axe_ground_smash_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.NETHERITE_AXE)
+                .key("challenge_axe_ground_smash_5")
+                .title(Localizer.dLocalize("advancement.challenge_axe_ground_smash_5.title"))
+                .description(Localizer.dLocalize("advancement.challenge_axe_ground_smash_5.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_axe_ground_smash_500", "axe.ground-smash.mobs-hit", 500, 500);
     }
 
     @Override
     public void addStats(int level, Element v) {
         double f = getLevelPercent(level);
-        v.addLore(C.RED + "+ " + Form.f(getFalloffDamage(f), 1) + " - " + Form.f(getDamage(f), 1) + C.GRAY + " " + Localizer.dLocalize("axe", "groundsmash", "lore1"));
-        v.addLore(C.RED + "+ " + Form.f(getRadius(f), 1) + C.GRAY + " " + Localizer.dLocalize("axe", "groundsmash", "lore2"));
-        v.addLore(C.RED + "+ " + Form.pc(getForce(f), 0) + C.GRAY + " " + Localizer.dLocalize("axe", "groundsmash", "lore3"));
-        v.addLore(C.YELLOW + "* " + Form.duration(getCooldownTime(getLevelPercent(level)) * 50D, 1) + C.GRAY + " " + Localizer.dLocalize("axe", "groundsmash", "lore4"));
+        v.addLore(C.RED + "+ " + Form.f(getFalloffDamage(f), 1) + " - " + Form.f(getDamage(f), 1) + C.GRAY + " " + Localizer.dLocalize("axe.ground_smash.lore1"));
+        v.addLore(C.RED + "+ " + Form.f(getRadius(f), 1) + C.GRAY + " " + Localizer.dLocalize("axe.ground_smash.lore2"));
+        v.addLore(C.RED + "+ " + Form.pc(getForce(f), 0) + C.GRAY + " " + Localizer.dLocalize("axe.ground_smash.lore3"));
+        v.addLore(C.YELLOW + "* " + Form.duration(getCooldownTime(getLevelPercent(level)) * 50D, 1) + C.GRAY + " " + Localizer.dLocalize("axe.ground_smash.lore4"));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -74,10 +94,23 @@ public class AxeGroundSmash extends SimpleAdaptation<AxeGroundSmash.Config> {
             }
 
             p.setCooldown(p.getInventory().getItemInMainHand().getType(), getCooldownTime(f));
-            new Impulse(getRadius(f))
+            double radius = getRadius(f);
+            new Impulse(radius)
                     .damage(getDamage(f), getFalloffDamage(f))
                     .force(getForce(f))
                     .punch(e.getEntity().getLocation());
+            int mobsHit = 0;
+            for (Entity nearby : e.getEntity().getWorld().getNearbyEntities(e.getEntity().getLocation(), radius, radius, radius)) {
+                if (nearby instanceof LivingEntity && nearby != p) {
+                    mobsHit++;
+                }
+            }
+            if (mobsHit > 0) {
+                getPlayer(p).getData().addStat("axe.ground-smash.mobs-hit", mobsHit);
+                if (mobsHit >= 5 && AdaptConfig.get().isAdvancements() && !getPlayer(p).getData().isGranted("challenge_axe_ground_smash_5")) {
+                    getPlayer(p).getAdvancementHandler().grant("challenge_axe_ground_smash_5");
+                }
+            }
             SoundPlayer spw = SoundPlayer.of(e.getEntity().getWorld());
             spw.play(e.getEntity().getLocation(), Sound.ENTITY_ZOMBIE_ATTACK_IRON_DOOR, SoundCategory.HOSTILE, 0.6f, 0.4f);
             spw.play(e.getEntity().getLocation(), Sound.ENTITY_ZOMBIE_ATTACK_IRON_DOOR, SoundCategory.HOSTILE, 0.5f, 0.1f);
@@ -122,19 +155,33 @@ public class AxeGroundSmash extends SimpleAdaptation<AxeGroundSmash.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Jump then crouch to smash all nearby enemies with your axe.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.75;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 8;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Falloff Factor for the Axe Ground Smash adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double falloffFactor = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Radius Level Factor Multiplier for the Axe Ground Smash adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double radiusLevelFactorMultiplier = 8;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Level Factor Multiplier for the Axe Ground Smash adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageLevelFactorMultiplier = 8;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Force Factor Multiplier for the Axe Ground Smash adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double forceFactorMultiplier = 1.15;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Force Base for the Axe Ground Smash adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double forceBase = 0.27;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Ticks Base for the Axe Ground Smash adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double cooldownTicksBase = 80;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Ticks Inverse Level Multiplier for the Axe Ground Smash adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double cooldownTicksInverseLevelMultiplier = 225;
     }
 }

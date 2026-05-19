@@ -19,10 +19,12 @@
 package com.volmit.adapt.content.adaptation.crafting;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdvancementSpec;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.event.EventHandler;
@@ -34,8 +36,8 @@ public class CraftingLeather extends SimpleAdaptation<CraftingLeather.Config> {
     public CraftingLeather() {
         super("crafting-leather");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("crafting", "leather", "description"));
-        setDisplayName(Localizer.dLocalize("crafting", "leather", "name"));
+        setDescription(Localizer.dLocalize("crafting.leather.description"));
+        setDisplayName(Localizer.dLocalize("crafting.leather.name"));
         setIcon(Material.LEATHER);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
@@ -49,12 +51,18 @@ public class CraftingLeather extends SimpleAdaptation<CraftingLeather.Config> {
                 .experience(1)
                 .result(new ItemStack(Material.LEATHER, 1))
                 .build());
-
+        AdvancementSpec leatherCrafted = AdvancementSpec.challenge(
+                "challenge_crafting_leather_100",
+                Material.LEATHER,
+                Localizer.dLocalize("advancement.challenge_crafting_leather_100.title"),
+                Localizer.dLocalize("advancement.challenge_crafting_leather_100.description")
+        );
+        registerMilestone(leatherCrafted, "crafting.leather.leather-crafted", 100, 300);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("crafting", "leather", "lore1"));
+        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("crafting.leather.lore1"));
     }
 
     @EventHandler
@@ -62,6 +70,8 @@ public class CraftingLeather extends SimpleAdaptation<CraftingLeather.Config> {
         if (e.getItem() != null && e.getItem().getType() == Material.ROTTEN_FLESH && e.getClickedBlock() != null && e.getClickedBlock().getType() == Material.CAMPFIRE) {
             if (!hasAdaptation(e.getPlayer())) {
                 e.setCancelled(true);
+            } else {
+                getPlayer(e.getPlayer()).getData().addStat("crafting.leather.leather-crafted", 1);
             }
         }
     }
@@ -82,12 +92,19 @@ public class CraftingLeather extends SimpleAdaptation<CraftingLeather.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Craft Leather from Rotten Flesh on a campfire.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

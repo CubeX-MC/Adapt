@@ -19,9 +19,14 @@
 package com.volmit.adapt.content.adaptation.enchanting;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -33,32 +38,51 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class EnchantingLapisReturn extends SimpleAdaptation<EnchantingLapisReturn.Config> {
-    private final Map<Player, Long> cooldown = new HashMap<>();
+    private final Map<UUID, Long> cooldown = new HashMap<>();
 
     public EnchantingLapisReturn() {
         super("enchanting-lapis-return");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("enchanting", "lapisreturn", "description"));
-        setDisplayName(Localizer.dLocalize("enchanting", "lapisreturn", "name"));
+        setDescription(Localizer.dLocalize("enchanting.lapis_return.description"));
+        setDisplayName(Localizer.dLocalize("enchanting.lapis_return.name"));
         setIcon(Material.LAPIS_LAZULI);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(20999);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.LAPIS_LAZULI)
+                .key("challenge_enchanting_lapis_100")
+                .title(Localizer.dLocalize("advancement.challenge_enchanting_lapis_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_enchanting_lapis_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.LAPIS_BLOCK)
+                        .key("challenge_enchanting_lapis_2500")
+                        .title(Localizer.dLocalize("advancement.challenge_enchanting_lapis_2500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_enchanting_lapis_2500.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_enchanting_lapis_100", "enchanting.lapis-return.lapis-saved", 100, 300);
+        registerMilestone("challenge_enchanting_lapis_2500", "enchanting.lapis-return.lapis-saved", 2500, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("enchanting", "lapisreturn", "lore1"));
+        v.addLore(C.GREEN + Localizer.dLocalize("enchanting.lapis_return.lore1"));
     }
 
     @EventHandler
     public void on(PlayerQuitEvent e) {
-        Player p = e.getPlayer();
-        cooldown.remove(p);
+        cooldown.remove(e.getPlayer().getUniqueId());
     }
 
 
@@ -74,14 +98,17 @@ public class EnchantingLapisReturn extends SimpleAdaptation<EnchantingLapisRetur
         }
 
 
-        if (Math.random() * 100 > 80) {
-            if (cooldown.containsKey(p) && cooldown.get(p) + 20000 < System.currentTimeMillis()) {
-                cooldown.remove(p);
-            } else if (cooldown.containsKey(p) && cooldown.get(p) + 20000 > System.currentTimeMillis()) {
+        if (ThreadLocalRandom.current().nextDouble(100D) > 80D) {
+            long now = System.currentTimeMillis();
+            UUID playerId = p.getUniqueId();
+            Long nextAllowedAt = cooldown.get(playerId);
+            if (nextAllowedAt != null && nextAllowedAt > now) {
                 return;
             }
-            cooldown.put(p, System.currentTimeMillis());
+
+            cooldown.put(playerId, now + 20000L);
             p.getWorld().dropItemNaturally(p.getLocation(), new ItemStack(Material.LAPIS_LAZULI, getLevel(p)));
+            getPlayer(p).getData().addStat("enchanting.lapis-return.lapis-saved", getLevel(p));
         }
     }
 
@@ -101,12 +128,19 @@ public class EnchantingLapisReturn extends SimpleAdaptation<EnchantingLapisRetur
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Chance to return free lapis when enchanting at the cost of 1 extra level.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
-        double costFactor = 2.25;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.9;
     }
 }

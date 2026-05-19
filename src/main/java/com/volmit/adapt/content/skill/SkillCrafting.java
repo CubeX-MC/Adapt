@@ -18,7 +18,7 @@
 
 package com.volmit.adapt.content.skill;
 
-import com.fren_gor.ultimateAdvancementAPI.advancement.display.AdvancementFrameType;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
 import com.volmit.adapt.api.advancement.AdaptAdvancement;
 import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.skill.SimpleSkill;
@@ -46,11 +46,11 @@ public class SkillCrafting extends SimpleSkill<SkillCrafting.Config> {
     private final Map<Player, Long> cooldowns;
 
     public SkillCrafting() {
-        super("crafting", Localizer.dLocalize("skill", "crafting", "icon"));
+        super("crafting", Localizer.dLocalize("skill.crafting.icon"));
         registerConfiguration(Config.class);
         setColor(C.YELLOW);
-        setDescription(Localizer.dLocalize("skill", "crafting", "description"));
-        setDisplayName(Localizer.dLocalize("skill", "crafting", "name"));
+        setDescription(Localizer.dLocalize("skill.crafting.description"));
+        setDisplayName(Localizer.dLocalize("skill.crafting.name"));
         setInterval(3789);
         setIcon(Material.CRAFTING_TABLE);
         registerAdaptation(new CraftingDeconstruction());
@@ -62,49 +62,129 @@ public class SkillCrafting extends SimpleSkill<SkillCrafting.Config> {
         registerAdaptation(new CraftingReconstruction());
         registerAdvancement(AdaptAdvancement.builder()
                 .icon(Material.CRAFTING_TABLE).key("challenge_craft_1k")
-                .title(Localizer.dLocalize("advancement", "challenge_craft_1k", "title"))
-                .description(Localizer.dLocalize("advancement", "challenge_craft_1k", "description"))
+                .title(Localizer.dLocalize("advancement.challenge_craft_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_craft_1k.description"))
                 .model(CustomModel.get(Material.CRAFTING_TABLE, "advancement", "crafting", "challenge_craft_1k"))
-                .frame(AdvancementFrameType.CHALLENGE)
+                .frame(AdaptAdvancementFrame.CHALLENGE)
                 .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                         .icon(Material.CRAFTING_TABLE)
                         .key("challenge_craft_5k")
-                        .title(Localizer.dLocalize("advancement", "challenge_craft_5k", "title"))
-                        .description(Localizer.dLocalize("advancement", "challenge_craft_5k", "description"))
+                        .title(Localizer.dLocalize("advancement.challenge_craft_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_craft_5k.description"))
                         .model(CustomModel.get(Material.CRAFTING_TABLE, "advancement", "crafting", "challenge_craft_5k"))
-                        .frame(AdvancementFrameType.CHALLENGE)
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
                         .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                 .icon(Material.CRAFTING_TABLE)
                                 .key("challenge_craft_50k")
-                                .title(Localizer.dLocalize("advancement", "challenge_craft_50k", "title"))
-                                .description(Localizer.dLocalize("advancement", "challenge_craft_50k", "description"))
+                                .title(Localizer.dLocalize("advancement.challenge_craft_50k.title"))
+                                .description(Localizer.dLocalize("advancement.challenge_craft_50k.description"))
                                 .model(CustomModel.get(Material.CRAFTING_TABLE, "advancement", "crafting", "challenge_craft_50k"))
-                                .frame(AdvancementFrameType.CHALLENGE)
+                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                 .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                         .icon(Material.CRAFTING_TABLE)
                                         .key("challenge_craft_500k")
-                                        .title(Localizer.dLocalize("advancement", "challenge_craft_500k", "title"))
-                                        .description(Localizer.dLocalize("advancement", "challenge_craft_500k", "description"))
+                                        .title(Localizer.dLocalize("advancement.challenge_craft_500k.title"))
+                                        .description(Localizer.dLocalize("advancement.challenge_craft_500k.description"))
                                         .model(CustomModel.get(Material.CRAFTING_TABLE, "advancement", "crafting", "challenge_craft_500k"))
-                                        .frame(AdvancementFrameType.CHALLENGE)
+                                        .frame(AdaptAdvancementFrame.CHALLENGE)
                                         .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                                 .icon(Material.CRAFTING_TABLE)
                                                 .key("challenge_craft_5m")
-                                                .title(Localizer.dLocalize("advancement", "challenge_craft_5m", "title"))
-                                                .description(Localizer.dLocalize("advancement", "challenge_craft_5m", "description"))
+                                                .title(Localizer.dLocalize("advancement.challenge_craft_5m.title"))
+                                                .description(Localizer.dLocalize("advancement.challenge_craft_5m.description"))
                                                 .model(CustomModel.get(Material.CRAFTING_TABLE, "advancement", "crafting", "challenge_craft_5m"))
-                                                .frame(AdvancementFrameType.CHALLENGE)
+                                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                                                 .build())
                                         .build())
                                 .build())
                         .build())
                 .build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_craft_1k").goal(1000).stat("crafted.items").reward(getConfig().challengeCraft1kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_craft_5k").goal(5000).stat("crafted.items").reward(getConfig().challengeCraft1kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_craft_50k").goal(50000).stat("crafted.items").reward(getConfig().challengeCraft1kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_craft_500k").goal(500000).stat("crafted.items").reward(getConfig().challengeCraft1kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_craft_5m").goal(5000000).stat("crafted.items").reward(getConfig().challengeCraft1kReward).build());
+        registerMilestone("challenge_craft_1k", "crafted.items", 1000, getConfig().challengeCraft1kReward);
+        registerMilestone("challenge_craft_5k", "crafted.items", 5000, getConfig().challengeCraft1kReward);
+        registerMilestone("challenge_craft_50k", "crafted.items", 50000, getConfig().challengeCraft1kReward);
+        registerMilestone("challenge_craft_500k", "crafted.items", 500000, getConfig().challengeCraft1kReward);
+        registerMilestone("challenge_craft_5m", "crafted.items", 5000000, getConfig().challengeCraft1kReward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.GOLD_INGOT).key("challenge_craft_value_10k")
+                .title(Localizer.dLocalize("advancement.challenge_craft_value_10k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_craft_value_10k.description"))
+                .model(CustomModel.get(Material.GOLD_INGOT, "advancement", "crafting", "challenge_craft_value_10k"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND)
+                        .key("challenge_craft_value_100k")
+                        .title(Localizer.dLocalize("advancement.challenge_craft_value_100k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_craft_value_100k.description"))
+                        .model(CustomModel.get(Material.DIAMOND, "advancement", "crafting", "challenge_craft_value_100k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_craft_value_10k", "crafted.value", 10000, getConfig().challengeCraft1kReward);
+        registerMilestone("challenge_craft_value_100k", "crafted.value", 100000, getConfig().challengeCraft1kReward * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_PICKAXE).key("challenge_craft_tools_25")
+                .title(Localizer.dLocalize("advancement.challenge_craft_tools_25.title"))
+                .description(Localizer.dLocalize("advancement.challenge_craft_tools_25.description"))
+                .model(CustomModel.get(Material.IRON_PICKAXE, "advancement", "crafting", "challenge_craft_tools_25"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_PICKAXE)
+                        .key("challenge_craft_tools_250")
+                        .title(Localizer.dLocalize("advancement.challenge_craft_tools_250.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_craft_tools_250.description"))
+                        .model(CustomModel.get(Material.DIAMOND_PICKAXE, "advancement", "crafting", "challenge_craft_tools_250"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_craft_tools_25", "crafting.tools", 25, getConfig().challengeCraft1kReward);
+        registerMilestone("challenge_craft_tools_250", "crafting.tools", 250, getConfig().challengeCraft1kReward * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_CHESTPLATE).key("challenge_craft_armor_25")
+                .title(Localizer.dLocalize("advancement.challenge_craft_armor_25.title"))
+                .description(Localizer.dLocalize("advancement.challenge_craft_armor_25.description"))
+                .model(CustomModel.get(Material.IRON_CHESTPLATE, "advancement", "crafting", "challenge_craft_armor_25"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_CHESTPLATE)
+                        .key("challenge_craft_armor_250")
+                        .title(Localizer.dLocalize("advancement.challenge_craft_armor_250.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_craft_armor_250.description"))
+                        .model(CustomModel.get(Material.DIAMOND_CHESTPLATE, "advancement", "crafting", "challenge_craft_armor_250"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_craft_armor_25", "crafting.armor", 25, getConfig().challengeCraft1kReward);
+        registerMilestone("challenge_craft_armor_250", "crafting.armor", 250, getConfig().challengeCraft1kReward * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.HOPPER).key("challenge_craft_mass_25k")
+                .title(Localizer.dLocalize("advancement.challenge_craft_mass_25k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_craft_mass_25k.description"))
+                .model(CustomModel.get(Material.HOPPER, "advancement", "crafting", "challenge_craft_mass_25k"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.CHEST)
+                        .key("challenge_craft_mass_250k")
+                        .title(Localizer.dLocalize("advancement.challenge_craft_mass_250k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_craft_mass_250k.description"))
+                        .model(CustomModel.get(Material.CHEST, "advancement", "crafting", "challenge_craft_mass_250k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_craft_mass_25k", "crafted.items", 25000, getConfig().challengeCraft1kReward * 2);
+        registerMilestone("challenge_craft_mass_250k", "crafted.items", 250000, getConfig().challengeCraft1kReward * 5);
 
         cooldowns = new HashMap<>();
     }
@@ -125,6 +205,14 @@ public class SkillCrafting extends SimpleSkill<SkillCrafting.Config> {
                 double v = recipeAmount * getValue(e.getRecipe().getResult()) * getConfig().craftingValueXPMultiplier;
                 getPlayer(p).getData().addStat("crafted.items", recipeAmount);
                 getPlayer(p).getData().addStat("crafted.value", v);
+                Material resultType = e.getRecipe().getResult().getType();
+                String typeName = resultType.name();
+                if (typeName.contains("_PICKAXE") || typeName.contains("_AXE") || typeName.contains("_SHOVEL") || typeName.contains("_HOE") || typeName.contains("_SWORD")) {
+                    getPlayer(p).getData().addStat("crafting.tools", recipeAmount);
+                }
+                if (typeName.contains("_HELMET") || typeName.contains("_CHESTPLATE") || typeName.contains("_LEGGINGS") || typeName.contains("_BOOTS")) {
+                    getPlayer(p).getData().addStat("crafting.armor", recipeAmount);
+                }
                 xp(p, v + getConfig().baseCraftingXP);
             }
         });
@@ -143,12 +231,7 @@ public class SkillCrafting extends SimpleSkill<SkillCrafting.Config> {
 
     @Override
     public void onTick() {
-        for (Player i : Bukkit.getOnlinePlayers()) {
-            if (shouldReturnForPlayer(i)) {
-                continue;
-            }
-            checkStatTrackers(getPlayer(i));
-        }
+        checkStatTrackersForOnlinePlayers();
     }
 
 
@@ -238,14 +321,23 @@ public class SkillCrafting extends SimpleSkill<SkillCrafting.Config> {
 
     @NoArgsConstructor
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
-        double furnaceBaseXP = 24;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Furnace Base XP for the Crafting skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double furnaceBaseXP = 30;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Furnace Value XPMultiplier for the Crafting skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double furnaceValueXPMultiplier = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Furnace XPRadius for the Crafting skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int furnaceXPRadius = 32;
-        long cooldownDelay = 10000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Delay for the Crafting skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        long cooldownDelay = 3000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Furnace XPDuration for the Crafting skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         long furnaceXPDuration = 10000;
-        double craftingValueXPMultiplier = 1;
-        double baseCraftingXP = 0.25;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Crafting Value XPMultiplier for the Crafting skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double craftingValueXPMultiplier = 2.0;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Base Crafting XP for the Crafting skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double baseCraftingXP = 3.0;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Craft1k Reward for the Crafting skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double challengeCraft1kReward = 1200;
     }
 }

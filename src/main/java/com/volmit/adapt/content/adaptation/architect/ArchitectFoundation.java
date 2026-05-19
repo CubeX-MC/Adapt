@@ -20,8 +20,13 @@ package com.volmit.adapt.content.adaptation.architect;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
-import com.volmit.adapt.util.reflect.enums.Particles;
+import com.volmit.adapt.util.reflect.registries.Particles;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -56,8 +61,8 @@ public class ArchitectFoundation extends SimpleAdaptation<ArchitectFoundation.Co
     public ArchitectFoundation() {
         super("architect-foundation");
         registerConfiguration(ArchitectFoundation.Config.class);
-        setDescription(Localizer.dLocalize("architect", "foundation", "description"));
-        setDisplayName(Localizer.dLocalize("architect", "foundation", "name"));
+        setDescription(Localizer.dLocalize("architect.foundation.description"));
+        setDisplayName(Localizer.dLocalize("architect.foundation.name"));
         setIcon(Material.TINTED_GLASS);
         setInterval(988);
         setBaseCost(getConfig().baseCost);
@@ -68,13 +73,31 @@ public class ArchitectFoundation extends SimpleAdaptation<ArchitectFoundation.Co
         cooldowns = new HashMap<>();
         active = new HashSet<>();
         activeBlocks = new HashSet<>();
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.SCAFFOLDING)
+                .key("challenge_architect_foundation_1k")
+                .title(Localizer.dLocalize("advancement.challenge_architect_foundation_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_architect_foundation_1k.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.SCAFFOLDING)
+                        .key("challenge_architect_foundation_10k")
+                        .title(Localizer.dLocalize("advancement.challenge_architect_foundation_10k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_architect_foundation_10k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_architect_foundation_1k", "architect.foundation.blocks-placed", 1000, 300);
+        registerMilestone("challenge_architect_foundation_10k", "architect.foundation.blocks-placed", 10000, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("architect", "foundation", "lore1")
+        v.addLore(C.GREEN + Localizer.dLocalize("architect.foundation.lore1")
                 + (getBlockPower(getLevelPercent(level))) + C.GRAY + " "
-                + Localizer.dLocalize("architect", "foundation", "lore2"));
+                + Localizer.dLocalize("architect.foundation.lore2"));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -115,6 +138,7 @@ public class ArchitectFoundation extends SimpleAdaptation<ArchitectFoundation.Co
         for (Block b : locs) {
             if (addFoundation(b)) {
                 power--;
+                getPlayer(p).getData().addStat("architect.foundation.blocks-placed", 1);
             }
 
             if (power <= 0) {
@@ -227,12 +251,12 @@ public class ArchitectFoundation extends SimpleAdaptation<ArchitectFoundation.Co
         });
         SoundPlayer spw = SoundPlayer.of(block.getWorld());
         spw.play(block.getLocation(), Sound.BLOCK_DEEPSLATE_PLACE, 1.0f, 1.0f);
-        if (getConfig().showParticles) {
+        if (areParticlesEnabled()) {
 
             vfxCuboidOutline(block, Particle.REVERSE_PORTAL);
             vfxCuboidOutline(block, Particle.ASH);
         }
-        J.a(() -> removeFoundation(block), 3 * 20);
+        J.s(() -> removeFoundation(block), 3 * 20);
         return true;
     }
 
@@ -247,7 +271,7 @@ public class ArchitectFoundation extends SimpleAdaptation<ArchitectFoundation.Co
             SoundPlayer spw = SoundPlayer.of(block.getWorld());
             spw.play(block.getLocation(), Sound.BLOCK_DEEPSLATE_BREAK, 1.0f, 1.0f);
         });
-        if (getConfig().showParticles) {
+        if (areParticlesEnabled()) {
             vfxCuboidOutline(block, Particles.ENCHANTMENT_TABLE);
         }
     }
@@ -258,7 +282,8 @@ public class ArchitectFoundation extends SimpleAdaptation<ArchitectFoundation.Co
 
     @Override
     public void onTick() {
-        for (Player i : Bukkit.getOnlinePlayers()) {
+        for (com.volmit.adapt.api.world.AdaptPlayer adaptPlayer : getServer().getOnlineAdaptPlayerSnapshot()) {
+            Player i = adaptPlayer.getPlayer();
             if (!hasAdaptation(i)) {
                 continue;
             }
@@ -305,17 +330,29 @@ public class ArchitectFoundation extends SimpleAdaptation<ArchitectFoundation.Co
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Sneak to place a temporary foundation beneath you.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Duration for the Architect Foundation adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public long duration = 3000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Min Blocks for the Architect Foundation adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public int minBlocks = 9;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Blocks for the Architect Foundation adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public int maxBlocks = 35;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown for the Architect Foundation adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public int cooldown = 5000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Architect Foundation adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.40;
     }
 }

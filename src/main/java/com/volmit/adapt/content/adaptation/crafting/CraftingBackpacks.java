@@ -19,13 +19,18 @@
 package com.volmit.adapt.content.adaptation.crafting;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdvancementSpec;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
 import com.volmit.adapt.api.recipe.MaterialChar;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
@@ -35,8 +40,8 @@ public class CraftingBackpacks extends SimpleAdaptation<CraftingBackpacks.Config
     public CraftingBackpacks() {
         super("crafting-backpacks");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("crafting", "backpacks", "description"));
-        setDisplayName(Localizer.dLocalize("crafting", "backpacks", "name"));
+        setDescription(Localizer.dLocalize("crafting.backpacks.description"));
+        setDisplayName(Localizer.dLocalize("crafting.backpacks.name"));
         setIcon(Material.BUNDLE);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
@@ -55,17 +60,34 @@ public class CraftingBackpacks extends SimpleAdaptation<CraftingBackpacks.Config
                         "ICI"))
                 .result(new ItemStack(Material.BUNDLE, 1))
                 .build());
+        AdvancementSpec backpacksCrafted = AdvancementSpec.challenge(
+                "challenge_crafting_backpack_25",
+                Material.BUNDLE,
+                Localizer.dLocalize("advancement.challenge_crafting_backpack_25.title"),
+                Localizer.dLocalize("advancement.challenge_crafting_backpack_25.description")
+        );
+        registerMilestone(backpacksCrafted, "crafting.backpacks.bundles-crafted", 25, 300);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("crafting", "backpacks", "lore1"));
-        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting", "backpacks", "lore2"));
-        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting", "backpacks", "lore3"));
-        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting", "backpacks", "lore4"));
+        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("crafting.backpacks.lore1"));
+        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting.backpacks.lore2"));
+        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting.backpacks.lore3"));
+        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting.backpacks.lore4"));
 
     }
 
+
+    @EventHandler
+    public void on(CraftItemEvent e) {
+        if (e.isCancelled()) return;
+        Player p = (Player) e.getWhoClicked();
+        if (!hasAdaptation(p)) return;
+        if (e.getRecipe() != null && e.getRecipe().getResult().getType() == Material.BUNDLE) {
+            getPlayer(p).getData().addStat("crafting.backpacks.bundles-crafted", 1);
+        }
+    }
 
     @Override
     public void onTick() {
@@ -82,12 +104,19 @@ public class CraftingBackpacks extends SimpleAdaptation<CraftingBackpacks.Config
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Craft Bundles for portable item storage.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

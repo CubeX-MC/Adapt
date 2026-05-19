@@ -18,7 +18,7 @@
 
 package com.volmit.adapt.content.skill;
 
-import com.fren_gor.ultimateAdvancementAPI.advancement.display.AdvancementFrameType;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
 import com.volmit.adapt.api.advancement.AdaptAdvancement;
 import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.skill.SimpleSkill;
@@ -32,6 +32,7 @@ import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.CustomModel;
 import com.volmit.adapt.util.Localizer;
 import lombok.NoArgsConstructor;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -47,10 +48,10 @@ public class SkillExcavation extends SimpleSkill<SkillExcavation.Config> {
     private final Map<Player, Long> cooldowns;
 
     public SkillExcavation() {
-        super("excavation", Localizer.dLocalize("skill", "excavation", "icon"));
+        super("excavation", Localizer.dLocalize("skill.excavation.icon"));
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("skill", "excavation", "description"));
-        setDisplayName(Localizer.dLocalize("skill", "excavation", "name"));
+        setDescription(Localizer.dLocalize("skill.excavation.description"));
+        setDisplayName(Localizer.dLocalize("skill.excavation.name"));
         setColor(C.YELLOW);
         setInterval(5953);
         setIcon(Material.DIAMOND_SHOVEL);
@@ -61,49 +62,129 @@ public class SkillExcavation extends SimpleSkill<SkillExcavation.Config> {
         registerAdaptation(new ExcavationDropToInventory());
         registerAdvancement(AdaptAdvancement.builder()
                 .icon(Material.WOODEN_SHOVEL).key("challenge_excavate_1k")
-                .title(Localizer.dLocalize("advancement", "challenge_excavate_1k", "title"))
-                .description(Localizer.dLocalize("advancement", "challenge_excavate_1k", "description"))
+                .title(Localizer.dLocalize("advancement.challenge_excavate_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_excavate_1k.description"))
                 .model(CustomModel.get(Material.WOODEN_SHOVEL, "advancement", "excavation", "challenge_excavate_1k"))
-                .frame(AdvancementFrameType.CHALLENGE)
+                .frame(AdaptAdvancementFrame.CHALLENGE)
                 .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                         .icon(Material.KNOWLEDGE_BOOK)
                         .key("challenge_excavate_5k")
-                        .title(Localizer.dLocalize("advancement", "challenge_excavate_5k", "title"))
-                        .description(Localizer.dLocalize("advancement", "challenge_excavate_5k", "description"))
+                        .title(Localizer.dLocalize("advancement.challenge_excavate_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_excavate_5k.description"))
                         .model(CustomModel.get(Material.KNOWLEDGE_BOOK, "advancement", "excavation", "challenge_excavate_5k"))
-                        .frame(AdvancementFrameType.CHALLENGE)
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
                         .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                 .icon(Material.STONE_SHOVEL)
                                 .key("challenge_excavate_50k")
-                                .title(Localizer.dLocalize("advancement", "challenge_excavate_50k", "title"))
-                                .description(Localizer.dLocalize("advancement", "challenge_excavate_50k", "description"))
+                                .title(Localizer.dLocalize("advancement.challenge_excavate_50k.title"))
+                                .description(Localizer.dLocalize("advancement.challenge_excavate_50k.description"))
                                 .model(CustomModel.get(Material.STONE_SHOVEL, "advancement", "excavation", "challenge_excavate_50k"))
-                                .frame(AdvancementFrameType.CHALLENGE)
+                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                 .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                         .icon(Material.IRON_SHOVEL)
                                         .key("challenge_excavate_500k")
-                                        .title(Localizer.dLocalize("advancement", "challenge_excavate_500k", "title"))
-                                        .description(Localizer.dLocalize("advancement", "challenge_excavate_500k", "description"))
+                                        .title(Localizer.dLocalize("advancement.challenge_excavate_500k.title"))
+                                        .description(Localizer.dLocalize("advancement.challenge_excavate_500k.description"))
                                         .model(CustomModel.get(Material.IRON_SHOVEL, "advancement", "excavation", "challenge_excavate_500k"))
-                                        .frame(AdvancementFrameType.CHALLENGE)
+                                        .frame(AdaptAdvancementFrame.CHALLENGE)
                                         .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                                 .icon(Material.DIAMOND_SHOVEL)
                                                 .key("challenge_excavate_5m")
-                                                .title(Localizer.dLocalize("advancement", "challenge_excavate_5m", "title"))
-                                                .description(Localizer.dLocalize("advancement", "challenge_excavate_5m", "description"))
+                                                .title(Localizer.dLocalize("advancement.challenge_excavate_5m.title"))
+                                                .description(Localizer.dLocalize("advancement.challenge_excavate_5m.description"))
                                                 .model(CustomModel.get(Material.DIAMOND_SHOVEL, "advancement", "excavation", "challenge_excavate_5m"))
-                                                .frame(AdvancementFrameType.CHALLENGE)
+                                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                                                 .build())
                                         .build())
                                 .build())
                         .build())
                 .build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_excavate_1k").goal(1000).stat("excavation.blocks.broken").reward(getConfig().challengeExcavationReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_excavate_5k").goal(5000).stat("excavation.blocks.broken").reward(getConfig().challengeExcavationReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_excavate_50k").goal(50000).stat("excavation.blocks.broken").reward(getConfig().challengeExcavationReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_enchant_500k").goal(500000).stat("excavation.blocks.broken").reward(getConfig().challengeExcavationReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_excavate_5m").goal(5000000).stat("excavation.blocks.broken").reward(getConfig().challengeExcavationReward).build());
+        registerMilestone("challenge_excavate_1k", "excavation.blocks.broken", 1000, getConfig().challengeExcavationReward);
+        registerMilestone("challenge_excavate_5k", "excavation.blocks.broken", 5000, getConfig().challengeExcavationReward);
+        registerMilestone("challenge_excavate_50k", "excavation.blocks.broken", 50000, getConfig().challengeExcavationReward);
+        registerMilestone("challenge_enchant_500k", "excavation.blocks.broken", 500000, getConfig().challengeExcavationReward);
+        registerMilestone("challenge_excavate_5m", "excavation.blocks.broken", 5000000, getConfig().challengeExcavationReward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WOODEN_SHOVEL).key("challenge_dig_swing_500")
+                .title(Localizer.dLocalize("advancement.challenge_dig_swing_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_dig_swing_500.description"))
+                .model(CustomModel.get(Material.WOODEN_SHOVEL, "advancement", "excavation", "challenge_dig_swing_500"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.IRON_SHOVEL)
+                        .key("challenge_dig_swing_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_dig_swing_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_dig_swing_5k.description"))
+                        .model(CustomModel.get(Material.IRON_SHOVEL, "advancement", "excavation", "challenge_dig_swing_5k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_dig_swing_500", "excavation.swings", 500, getConfig().challengeExcavationReward);
+        registerMilestone("challenge_dig_swing_5k", "excavation.swings", 5000, getConfig().challengeExcavationReward * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.GOLDEN_SHOVEL).key("challenge_dig_damage_1k")
+                .title(Localizer.dLocalize("advancement.challenge_dig_damage_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_dig_damage_1k.description"))
+                .model(CustomModel.get(Material.GOLDEN_SHOVEL, "advancement", "excavation", "challenge_dig_damage_1k"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_SHOVEL)
+                        .key("challenge_dig_damage_10k")
+                        .title(Localizer.dLocalize("advancement.challenge_dig_damage_10k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_dig_damage_10k.description"))
+                        .model(CustomModel.get(Material.DIAMOND_SHOVEL, "advancement", "excavation", "challenge_dig_damage_10k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_dig_damage_1k", "excavation.damage", 1000, getConfig().challengeExcavationReward);
+        registerMilestone("challenge_dig_damage_10k", "excavation.damage", 10000, getConfig().challengeExcavationReward * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.CLAY_BALL).key("challenge_dig_value_5k")
+                .title(Localizer.dLocalize("advancement.challenge_dig_value_5k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_dig_value_5k.description"))
+                .model(CustomModel.get(Material.CLAY_BALL, "advancement", "excavation", "challenge_dig_value_5k"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.BRICK)
+                        .key("challenge_dig_value_50k")
+                        .title(Localizer.dLocalize("advancement.challenge_dig_value_50k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_dig_value_50k.description"))
+                        .model(CustomModel.get(Material.BRICK, "advancement", "excavation", "challenge_dig_value_50k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_dig_value_5k", "excavation.blocks.value", 5000, getConfig().challengeExcavationReward);
+        registerMilestone("challenge_dig_value_50k", "excavation.blocks.value", 50000, getConfig().challengeExcavationReward * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.GRAVEL).key("challenge_dig_gravel_500")
+                .title(Localizer.dLocalize("advancement.challenge_dig_gravel_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_dig_gravel_500.description"))
+                .model(CustomModel.get(Material.GRAVEL, "advancement", "excavation", "challenge_dig_gravel_500"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.FLINT)
+                        .key("challenge_dig_gravel_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_dig_gravel_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_dig_gravel_5k.description"))
+                        .model(CustomModel.get(Material.FLINT, "advancement", "excavation", "challenge_dig_gravel_5k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_dig_gravel_500", "excavation.gravel", 500, getConfig().challengeExcavationReward);
+        registerMilestone("challenge_dig_gravel_5k", "excavation.gravel", 5000, getConfig().challengeExcavationReward * 2);
     }
 
 
@@ -151,6 +232,11 @@ public class SkillExcavation extends SimpleSkill<SkillExcavation.Config> {
     private void handleBlockBreakWithShovel(Player p, BlockBreakEvent e) {
         getPlayer(p).getData().addStat("excavation.blocks.broken", 1);
         getPlayer(p).getData().addStat("excavation.blocks.value", getValue(e.getBlock().getBlockData()));
+        Material blockType = e.getBlock().getType();
+        if (blockType == Material.GRAVEL || blockType == Material.SAND || blockType == Material.RED_SAND
+                || blockType == Material.CLAY || blockType == Material.SOUL_SAND || blockType == Material.SOUL_SOIL) {
+            getPlayer(p).getData().addStat("excavation.gravel", 1);
+        }
         Long cooldown = cooldowns.get(p);
         if (cooldown != null && cooldown + getConfig().cooldownDelay > System.currentTimeMillis())
             return;
@@ -169,7 +255,10 @@ public class SkillExcavation extends SimpleSkill<SkillExcavation.Config> {
 
     @Override
     public void onTick() {
-
+        if (!this.isEnabled()) {
+            return;
+        }
+        checkStatTrackersForOnlinePlayers();
     }
 
     @Override
@@ -179,13 +268,21 @@ public class SkillExcavation extends SimpleSkill<SkillExcavation.Config> {
 
     @NoArgsConstructor
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Get Xp For Attacking With Tools for the Excavation skill.", impact = "True enables this behavior and false disables it.")
         boolean getXpForAttackingWithTools = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Hardness Bonus for the Excavation skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double maxHardnessBonus = 9;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Blast Resistance Bonus for the Excavation skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double maxBlastResistanceBonus = 10;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Excavation Reward for the Excavation skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double challengeExcavationReward = 1200;
-        double valueXPMultiplier = 0.825;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Value XPMultiplier for the Excavation skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double valueXPMultiplier = 0.6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Delay for the Excavation skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         long cooldownDelay = 1250;
-        double axeDamageXPMultiplier = 6.5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Axe Damage XPMultiplier for the Excavation skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double axeDamageXPMultiplier = 4.0;
     }
 }

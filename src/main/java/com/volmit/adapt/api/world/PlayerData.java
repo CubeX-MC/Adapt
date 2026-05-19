@@ -18,37 +18,35 @@
 
 package com.volmit.adapt.api.world;
 
-import com.google.gson.Gson;
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.notification.ActionBarNotification;
 import com.volmit.adapt.api.notification.SoundNotification;
 import com.volmit.adapt.api.notification.TitleNotification;
+import com.volmit.adapt.api.skill.Skill;
 import com.volmit.adapt.api.xp.XP;
 import com.volmit.adapt.api.xp.XPMultiplier;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Form;
+import com.volmit.adapt.util.Json;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.collection.KList;
+import com.volmit.adapt.util.collection.KMap;
+import com.volmit.adapt.util.collection.KSet;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import manifold.util.concurrent.ConcurrentHashSet;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 @Data
 @NoArgsConstructor
 public class PlayerData {
-    private static final Gson GSON = new Gson();
-    private final Map<String, PlayerSkillLine> skillLines = new ConcurrentHashMap<>();
-    private Map<String, Double> stats = new ConcurrentHashMap<>();
+    private final KMap<String, PlayerSkillLine> skillLines = new KMap<>();
+    private KMap<String, Double> stats = new KMap<>();
     private String last = "none";
-    private Set<String> advancements = new ConcurrentHashSet<>();
+    private KSet<String> advancements = new KSet<>();
     private Discovery<String> seenBiomes = new Discovery<>();
     private Discovery<EntityType> seenMobs = new Discovery<>();
     private Discovery<Material> seenFoods = new Discovery<>();
@@ -60,7 +58,7 @@ public class PlayerData {
     private Discovery<World.Environment> seenEnvironments = new Discovery<>();
     private Discovery<String> seenPotionEffects = new Discovery<>();
     private Discovery<String> seenBlocks = new Discovery<>();
-    private List<XPMultiplier> multipliers = new CopyOnWriteArrayList<>();
+    private KList<XPMultiplier> multipliers = new KList<>();
     private long wisdom = 0;
     private double multiplier = 0;
     private long lastLogin = 0;
@@ -97,24 +95,9 @@ public class PlayerData {
     }
 
     public void update(AdaptPlayer p) {
-        double m = 1;
-        for (XPMultiplier i : multipliers.copy()) {
-            if (i.isExpired()) {
-                multipliers.remove(i);
-                continue;
-            }
-
-            m += i.getMultiplier();
-        }
-
-        for (XPMultiplier i : Adapt.instance.getAdaptServer().getData().getMultipliers().copy()) {
-            if (i.isExpired()) {
-                Adapt.instance.getAdaptServer().getData().getMultipliers().remove(i);
-                continue;
-            }
-
-            m += i.getMultiplier();
-        }
+        double m = 1D;
+        m += collectActivePlayerMultiplierBonus();
+        m += collectGlobalMultiplierBonus();
 
         if (m <= 0) {
             m = 0.01;
@@ -126,19 +109,30 @@ public class PlayerData {
 
         multiplier = m;
 
-        for (String i : skillLines.k()) {
-            if (getSkillLine(i) == null) {
-                skillLines.remove(i);
-                Adapt.warn("Removed unknown skill line '" + i + "' from " + p.getPlayer().getName());
+        for (var entry : skillLines.entrySet()) {
+            String lineId = entry.getKey();
+            Skill<?> loadedSkill = Adapt.instance.getAdaptServer().getSkillRegistry().getSkill(lineId);
+            if (loadedSkill == null) {
+                if (Adapt.instance.getAdaptServer().getSkillRegistry().isKnownSkill(lineId)) {
+                    continue;
+                }
+                skillLines.remove(lineId, entry.getValue());
+                Adapt.warn("Removed unknown skill line '" + lineId + "' from " + p.getPlayer().getName());
                 continue;
             }
 
-            if (getSkillLine(i).getXp() == 0 && getSkillLine(i).getKnowledge() == 0) {
-                skillLines.remove(i);
+            PlayerSkillLine lineData = entry.getValue();
+            if (lineData == null) {
+                skillLines.remove(lineId);
                 continue;
             }
 
-            getSkillLine(i).update(p, i, this);
+            if (lineData.getXp() == 0 && lineData.getKnowledge() == 0) {
+                skillLines.remove(lineId, lineData);
+                continue;
+            }
+
+            lineData.update(p, lineId, this);
         }
 
         int oldLevel = (int) XP.getLevelForXp(getLastMasterXp());
@@ -176,16 +170,42 @@ public class PlayerData {
                             .out(2250)
                             .group("lvl")
                             .title("")
-                            .subtitle(C.GOLD + Localizer.dLocalize("snippets", "gui", "level") +" " + level)// I'm sorry I missed this!
+                            .subtitle(C.GOLD + Localizer.dLocalize("snippets.gui.level") +" " + level)// I'm sorry I missed this!
                             .build());
             p.getActionBarNotifier().queue(
                     ActionBarNotification.builder()
                             .duration(450)
                             .group("power")
-                            .title(C.GOLD + "" + Form.f(level * AdaptConfig.get().getPowerPerLevel(), 0) + C.GRAY + " " + Localizer.dLocalize("snippets", "gui", "maxabilitypower")) // I'm sorry I missed this!
+                            .title(C.GOLD + "" + Form.f(level * AdaptConfig.get().getPowerPerLevel(), 0) + C.GRAY + " " + Localizer.dLocalize("snippets.gui.max_ability_power")) // I'm sorry I missed this!
                             .build());
 
         }
+    }
+
+    private double collectActivePlayerMultiplierBonus() {
+        double bonus = 0D;
+        for (int i = multipliers.size() - 1; i >= 0; i--) {
+            XPMultiplier active = multipliers.get(i);
+            if (active == null || active.isExpired()) {
+                multipliers.remove(i);
+                continue;
+            }
+            bonus += active.getMultiplier();
+        }
+        return bonus;
+    }
+
+    private double collectGlobalMultiplierBonus() {
+        double bonus = 0D;
+        KList<XPMultiplier> globalMultipliers = Adapt.instance.getAdaptServer().getData().getMultipliers();
+        for (int i = 0; i < globalMultipliers.size(); i++) {
+            XPMultiplier active = globalMultipliers.get(i);
+            if (active == null || active.isExpired()) {
+                continue;
+            }
+            bonus += active.getMultiplier();
+        }
+        return bonus;
     }
 
     public int getAvailablePower() {
@@ -201,7 +221,7 @@ public class PlayerData {
     }
 
     public int getUsedPower() {
-        return getSkillLines().values().stream().mapToInt(i -> i.getAdaptations().values().stream().mapToInt(PlayerAdaptation::getLevel).sum()).sum();
+        return skillLines.values().stream().mapToInt(i -> i.getAdaptations().values().stream().mapToInt(PlayerAdaptation::getLevel).sum()).sum();
     }
 
     public int getLevel() {
@@ -236,15 +256,116 @@ public class PlayerData {
         }
     }
 
+    public PlayerSkillLine getSkillLineNullable(String skillLine) {
+        return skillLines.get(skillLine);
+    }
+
+    public void resetMonotonyForOtherSkills(String currentSkill) {
+        for (PlayerSkillLine line : skillLines.values()) {
+            if (!line.getLine().equals(currentSkill)) {
+                line.relaxStalenessForActivitySwitch();
+            }
+        }
+    }
+
     public void addWisdom() {
         wisdom++;
     }
 
-    public String toJson() {
-        return GSON.toJson(this);
+    public void clearXp() {
+        for (PlayerSkillLine line : skillLines.values()) {
+            line.setXp(0);
+            line.setLastXP(0);
+            line.setLastLevel(0);
+            line.setMonotonyCounter(0);
+            line.setMonotonyMultiplier(1.0);
+            line.setLastXpTimestamp(0);
+            line.setSkillStaleness(new PlayerSkillLine.RewardStalenessState());
+            line.getActivityStaleness().clear();
+            line.getAdaptations().clear();
+        }
+        masterXp = 1;
+        lastMasterXp = 0;
+    }
+
+    public void clearKnowledge() {
+        for (PlayerSkillLine line : skillLines.values()) {
+            line.setKnowledge(0);
+        }
+    }
+
+    public void clearAdaptations() {
+        for (PlayerSkillLine line : skillLines.values()) {
+            line.getAdaptations().clear();
+        }
+    }
+
+    public void clearStats() {
+        stats.clear();
+    }
+
+    public void clearDiscoveries() {
+        seenBiomes = new Discovery<>();
+        seenMobs = new Discovery<>();
+        seenFoods = new Discovery<>();
+        seenItems = new Discovery<>();
+        seenRecipes = new Discovery<>();
+        seenEnchants = new Discovery<>();
+        seenWorlds = new Discovery<>();
+        seenPeople = new Discovery<>();
+        seenEnvironments = new Discovery<>();
+        seenPotionEffects = new Discovery<>();
+        seenBlocks = new Discovery<>();
+    }
+
+    public void pruneAdaptationsForPowerBudget() {
+        while (getUsedPower() > getMaxPower()) {
+            String worstSkill = null;
+            String worstAdaptation = null;
+            int worstLevel = Integer.MAX_VALUE;
+
+            for (var skillEntry : skillLines.entrySet()) {
+                for (var adaptEntry : skillEntry.getValue().getAdaptations().entrySet()) {
+                    int level = adaptEntry.getValue().getLevel();
+                    if (level > 0 && level < worstLevel) {
+                        worstLevel = level;
+                        worstSkill = skillEntry.getKey();
+                        worstAdaptation = adaptEntry.getKey();
+                    }
+                }
+            }
+
+            if (worstSkill == null) {
+                break;
+            }
+
+            PlayerAdaptation adapt = skillLines.get(worstSkill).getAdaptations().get(worstAdaptation);
+            if (adapt.getLevel() <= 1) {
+                skillLines.get(worstSkill).getAdaptations().remove(worstAdaptation);
+            } else {
+                adapt.setLevel(adapt.getLevel() - 1);
+            }
+        }
+    }
+
+    public void clearAll() {
+        clearXp();
+        clearKnowledge();
+        clearAdaptations();
+        clearStats();
+        clearDiscoveries();
+        advancements.clear();
+        multipliers.clear();
+        wisdom = 0;
+    }
+
+    public String toJson(boolean raw) {
+        synchronized (skillLines) {
+            return Json.toJson(this, !raw);
+        }
     }
 
     public static PlayerData fromJson(String json) {
-        return GSON.fromJson(json, PlayerData.class);
+        return Json.fromJson(json, PlayerData.class);
     }
 }

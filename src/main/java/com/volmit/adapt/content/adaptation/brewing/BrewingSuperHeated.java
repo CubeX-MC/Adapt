@@ -19,10 +19,17 @@
 package com.volmit.adapt.content.adaptation.brewing;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.data.WorldData;
+import com.volmit.adapt.api.world.AdaptStatTracker;
+import com.volmit.adapt.api.world.PlayerAdaptation;
 import com.volmit.adapt.api.world.PlayerData;
+import com.volmit.adapt.api.world.PlayerSkillLine;
 import com.volmit.adapt.content.matter.BrewingStandOwner;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -50,20 +57,38 @@ public class BrewingSuperHeated extends SimpleAdaptation<BrewingSuperHeated.Conf
     public BrewingSuperHeated() {
         super("brewing-super-heated");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("brewing", "superheated", "description"));
-        setDisplayName(Localizer.dLocalize("brewing", "superheated", "name"));
+        setDescription(Localizer.dLocalize("brewing.super_heated.description"));
+        setDisplayName(Localizer.dLocalize("brewing.super_heated.name"));
         setIcon(Material.LAVA_BUCKET);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setInterval(253);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.BLAZE_POWDER)
+                .key("challenge_brewing_super_heated_100")
+                .title(Localizer.dLocalize("advancement.challenge_brewing_super_heated_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_brewing_super_heated_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.MAGMA_CREAM)
+                        .key("challenge_brewing_super_heated_2500")
+                        .title(Localizer.dLocalize("advancement.challenge_brewing_super_heated_2500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_brewing_super_heated_2500.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_brewing_super_heated_100", "brewing.super-heated.brews-accelerated", 100, 300);
+        registerMilestone("challenge_brewing_super_heated_2500", "brewing.super-heated.brews-accelerated", 2500, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Form.pc(getFireBoost(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("brewing", "superheated", "lore1"));
-        v.addLore(C.GREEN + "+ " + Form.pc(getLavaBoost(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("brewing", "superheated", "lore2"));
+        v.addLore(C.GREEN + "+ " + Form.pc(getFireBoost(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("brewing.super_heated.lore1"));
+        v.addLore(C.GREEN + "+ " + Form.pc(getLavaBoost(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("brewing.super_heated.lore2"));
     }
 
     public double getLavaBoost(double factor) {
@@ -90,6 +115,12 @@ public class BrewingSuperHeated extends SimpleAdaptation<BrewingSuperHeated.Conf
     public void on(BrewEvent e) {
         if (e.isCancelled()) {
             return;
+        }
+        if (activeStands.containsKey(e.getBlock())) {
+            BrewingStandOwner owner = WorldData.of(e.getBlock().getWorld()).get(e.getBlock(), BrewingStandOwner.class);
+            if (owner != null) {
+                getServer().peekData(owner.getOwner()).addStat("brewing.super-heated.brews-accelerated", 1);
+            }
         }
         J.s(() -> {
             if (((BrewingStand) e.getBlock().getState()).getBrewingTime() > 0) {
@@ -137,7 +168,7 @@ public class BrewingSuperHeated extends SimpleAdaptation<BrewingSuperHeated.Conf
                         continue;
                     }
 
-                    BrewingStandOwner owner = WorldData.of(b.getWorld()).getMantle().get(b.getX(), b.getY(), b.getZ(), BrewingStandOwner.class);
+                    BrewingStandOwner owner = WorldData.of(b.getWorld()).get(b.getBlock(), BrewingStandOwner.class);
 
                     if (owner == null) {
                         it.remove();
@@ -146,9 +177,10 @@ public class BrewingSuperHeated extends SimpleAdaptation<BrewingSuperHeated.Conf
 
                     PlayerData p = getServer().peekData(owner.getOwner());
 
-                    if (p.getSkillLines().get(getSkill().getName()) != null && p.getSkillLines().get(getSkill().getName()).getAdaptations().containsKey(getName())
-                            && p.getSkillLines().get(getSkill().getName()).getAdaptations().get(getName()).getLevel() > 0) {
-                        updateHeat(b, getLevelPercent(p.getSkillLines().get(getSkill().getName()).getAdaptations().get(getName()).getLevel()));
+                    PlayerSkillLine line = p.getSkillLineNullable(getSkill().getName());
+                    PlayerAdaptation adaptation = line != null ? line.getAdaptation(getName()) : null;
+                    if (adaptation != null && adaptation.getLevel() > 0) {
+                        updateHeat(b, getLevelPercent(adaptation.getLevel()));
                     } else {
                         it.remove();
                     }
@@ -206,15 +238,25 @@ public class BrewingSuperHeated extends SimpleAdaptation<BrewingSuperHeated.Conf
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Brewing stands work faster when surrounded by fire or lava.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.75;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Multiplier Factor for the Brewing Super Heated adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double multiplierFactor = 1.33;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Fire Multiplier for the Brewing Super Heated adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double fireMultiplier = 0.14;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Lava Multiplier for the Brewing Super Heated adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double lavaMultiplier = 0.69;
     }
 }

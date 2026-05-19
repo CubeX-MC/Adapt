@@ -19,10 +19,14 @@
 package com.volmit.adapt.content.adaptation.seaborrne;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
-import com.volmit.adapt.util.J;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -35,28 +39,39 @@ public class SeaborneTurtlesVision extends SimpleAdaptation<SeaborneTurtlesVisio
     public SeaborneTurtlesVision() {
         super("seaborne-turtles-vision");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("seaborn", "nightvision", "description"));
-        setDisplayName(Localizer.dLocalize("seaborn", "nightvision", "name"));
+        setDescription(Localizer.dLocalize("seaborn.night_vision.description"));
+        setDisplayName(Localizer.dLocalize("seaborn.night_vision.name"));
         setIcon(Material.DIAMOND_HORSE_ARMOR);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(3000);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.TURTLE_HELMET)
+                .key("challenge_seaborne_vision_72k")
+                .title(Localizer.dLocalize("advancement.challenge_seaborne_vision_72k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_seaborne_vision_72k.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_seaborne_vision_72k", "seaborne.turtles-vision.time-underwater", 72000, 400);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("seaborn", "nightvision", "lore1"));
+        v.addLore(C.GRAY + Localizer.dLocalize("seaborn.night_vision.lore1"));
     }
 
 
     @Override
     public void onTick() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (com.volmit.adapt.api.world.AdaptPlayer adaptPlayer : getServer().getOnlineAdaptPlayerSnapshot()) {
+            Player player = adaptPlayer.getPlayer();
             if (player.isInWater() && hasAdaptation(player)) {
                 if (player.getLocation().getBlock().isLiquid()) {
-                    J.s(() -> player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 62, 0, false, false)));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 62, 0, false, false));
+                    getPlayer(player).getData().addStat("seaborne.turtles-vision.time-underwater", 1);
                 }
             }
         }
@@ -73,12 +88,19 @@ public class SeaborneTurtlesVision extends SimpleAdaptation<SeaborneTurtlesVisio
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Gain night vision while underwater.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

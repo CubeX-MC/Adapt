@@ -19,10 +19,15 @@
 package com.volmit.adapt.content.adaptation.herbalism;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Form;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -35,19 +40,37 @@ public class HerbalismHungryShield extends SimpleAdaptation<HerbalismHungryShiel
     public HerbalismHungryShield() {
         super("herbalism-hungry-shield");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("herbalism", "hungryshield", "description"));
-        setDisplayName(Localizer.dLocalize("herbalism", "hungryshield", "name"));
+        setDescription(Localizer.dLocalize("herbalism.hungry_shield.description"));
+        setDisplayName(Localizer.dLocalize("herbalism.hungry_shield.name"));
         setIcon(Material.APPLE);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(875);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.BREAD)
+                .key("challenge_herbalism_shield_500")
+                .title(Localizer.dLocalize("advancement.challenge_herbalism_shield_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_herbalism_shield_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.GOLDEN_APPLE)
+                        .key("challenge_herbalism_shield_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_herbalism_shield_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_herbalism_shield_5k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_herbalism_shield_500", "herbalism.hungry-shield.damage-absorbed", 500, 400);
+        registerMilestone("challenge_herbalism_shield_5k", "herbalism.hungry-shield.damage-absorbed", 5000, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Form.pc(getEffectiveness(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("herbalism", "hungryshield", "lore1"));
+        v.addLore(C.GREEN + "+ " + Form.pc(getEffectiveness(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("herbalism.hungry_shield.lore1"));
     }
 
 
@@ -74,6 +97,7 @@ public class HerbalismHungryShield extends SimpleAdaptation<HerbalismHungryShiel
             if (getPlayer(p).consumeFood(h, 6)) {
                 d += h;
                 e.setDamage(d);
+                getPlayer(p).getData().addStat("herbalism.hungry-shield.damage-absorbed", (int) Math.ceil(h));
                 xp(p, d);
             }
         }
@@ -90,14 +114,23 @@ public class HerbalismHungryShield extends SimpleAdaptation<HerbalismHungryShiel
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Take damage to your hunger before your health.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
-        int initialCost = 14;
-        double costFactor = 0.925;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
+        int initialCost = 10;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.78;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Effectiveness Base for the Herbalism Hungry Shield adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double effectivenessBase = 0.15;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Effectiveness for the Herbalism Hungry Shield adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double maxEffectiveness = 0.95;
     }
 }

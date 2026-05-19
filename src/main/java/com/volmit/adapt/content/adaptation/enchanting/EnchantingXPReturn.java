@@ -19,9 +19,14 @@
 package com.volmit.adapt.content.adaptation.enchanting;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -39,20 +44,29 @@ public class EnchantingXPReturn extends SimpleAdaptation<EnchantingXPReturn.Conf
     public EnchantingXPReturn() {
         super("enchanting-xp-return");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("enchanting", "return", "description"));
-        setDisplayName(Localizer.dLocalize("enchanting", "return", "name"));
+        setDescription(Localizer.dLocalize("enchanting.return.description"));
+        setDisplayName(Localizer.dLocalize("enchanting.return.name"));
         setIcon(Material.EXPERIENCE_BOTTLE);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(13001);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.EXPERIENCE_BOTTLE)
+                .key("challenge_enchanting_xp_100")
+                .title(Localizer.dLocalize("advancement.challenge_enchanting_xp_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_enchanting_xp_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_enchanting_xp_100", "enchanting.xp-return.levels-saved", 100, 400);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("enchanting", "return", "lore1"));
-        v.addLore(C.GREEN + "" + getConfig().xpReturn * (level * level) + Localizer.dLocalize("enchanting", "return", "lore2"));
+        v.addLore(C.GRAY + Localizer.dLocalize("enchanting.return.lore1"));
+        v.addLore(C.GREEN + "" + getConfig().xpReturn * (level * level) + Localizer.dLocalize("enchanting.return.lore2"));
     }
 
     @EventHandler
@@ -79,8 +93,9 @@ public class EnchantingXPReturn extends SimpleAdaptation<EnchantingXPReturn.Conf
             return;
         }
         cooldown.put(p, System.currentTimeMillis());
-        p.getWorld().spawn(p.getLocation(), org.bukkit.entity.ExperienceOrb.class).setExperience(getConfig().xpReturn * (level * level));
-
+        int xpAmount = getConfig().xpReturn * (level * level);
+        p.getWorld().spawn(p.getLocation(), org.bukkit.entity.ExperienceOrb.class).setExperience(xpAmount);
+        getPlayer(p).getData().addStat("enchanting.xp-return.levels-saved", xpAmount);
     }
 
     @Override
@@ -99,13 +114,21 @@ public class EnchantingXPReturn extends SimpleAdaptation<EnchantingXPReturn.Conf
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Enchanting XP is partially refunded when you enchant an item.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Xp Return for the Enchanting XPReturn adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public int xpReturn = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
-        double costFactor = 1.97;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.9;
     }
 }

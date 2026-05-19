@@ -64,7 +64,7 @@ public class UIWindow implements Window, Listener {
         setTitle("");
         setDecorator(new UIVoidDecorator());
         setResolution(WindowResolution.W9_H6);
-        setViewportHeight(clip(3, 1, getResolution().getMaxHeight()).intValue());
+        setViewportHeight(getResolution().getMaxHeight());
         setViewportPosition(0);
     }
 
@@ -413,28 +413,44 @@ public class UIWindow implements Window, Listener {
 
     @Override
     public Window updateInventory() {
-        if (isVisible()) {
-            if (Version.SET_TITLE) {
+        if (!isVisible() || inventory == null) {
+            return this;
+        }
+
+        Inventory top = viewer.getOpenInventory().getTopInventory();
+        if (!(top.getHolder() instanceof Holder holder) || holder.getWindow() != this) {
+            return this;
+        }
+
+        if (inventory != top) {
+            inventory = top;
+        }
+
+        if (Version.SET_TITLE) {
+            try {
                 viewer.getOpenInventory().setTitle(getTitle());
+            } catch (IllegalArgumentException ignored) {
+                return this;
             }
-            ItemStack[] is = inventory.getContents();
-            Set<ItemStack> isf = new HashSet<>();
+        }
 
-            for (int i = 0; i < is.length; i++) {
-                ItemStack isc = is[i];
-                ItemStack isx = computeItemStack(i);
-                int layoutRow = getLayoutRow(i);
-                int layoutPosition = getLayoutPosition(i);
+        ItemStack[] is = inventory.getContents();
+        Set<ItemStack> isf = new HashSet<>();
 
-                if (isx != null && !hasElement(layoutPosition, layoutRow)) {
-                    ItemStack gg = isx.clone();
-                    gg.setAmount(gg.getAmount() + 1);
-                    isf.add(gg);
-                }
+        for (int i = 0; i < is.length; i++) {
+            ItemStack isc = is[i];
+            ItemStack isx = computeItemStack(i);
+            int layoutRow = getLayoutRow(i);
+            int layoutPosition = getLayoutPosition(i);
 
-                if (((isc == null) != (isx == null)) || isx != null && isc != null && !isc.equals(isx)) {
-                    inventory.setItem(i, isx);
-                }
+            if (isx != null && !hasElement(layoutPosition, layoutRow)) {
+                ItemStack gg = isx.clone();
+                gg.setAmount(gg.getAmount() + 1);
+                isf.add(gg);
+            }
+
+            if (((isc == null) != (isx == null)) || isx != null && isc != null && !isc.equals(isx)) {
+                inventory.setItem(i, isx);
             }
         }
 
@@ -494,7 +510,9 @@ public class UIWindow implements Window, Listener {
     }
 
     private static Inventory getCurrentInventory(UIWindow window, Holder holder) {
-        if (!Version.SET_TITLE || holder.getResolution() != window.getResolution()) {
+        boolean requiresResize = window.getResolution().getType().equals(InventoryType.CHEST)
+                && holder.inventory.getSize() != window.getViewportHeight() * window.getResolution().getWidth();
+        if (!Version.SET_TITLE || holder.getResolution() != window.getResolution() || requiresResize) {
             holder.window.close();
             return createInventory(window);
         }

@@ -29,14 +29,11 @@ import com.volmit.adapt.api.skill.Skill;
 import com.volmit.adapt.api.xp.XP;
 import com.volmit.adapt.api.xp.XPMultiplier;
 import com.volmit.adapt.util.M;
+import com.volmit.adapt.util.collection.KList;
+import com.volmit.adapt.util.collection.KMap;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bukkit.Sound;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -50,9 +47,15 @@ public class PlayerSkillLine {
     private double rfreshness = 1D;
     private int lastLevel = 0;
     private long last = M.ms();
-    private Map<String, Object> storage = new HashMap<>();
-    private Map<String, PlayerAdaptation> adaptations = new HashMap<>();
-    private List<XPMultiplier> multipliers = new ArrayList<>();
+    private int monotonyCounter = 0;
+    private long lastXpTimestamp = 0;
+    private double monotonyMultiplier = 1.0;
+    private RewardStalenessState skillStaleness = new RewardStalenessState();
+    private long lastStalenessCleanup = 0;
+    private final KMap<String, Object> storage = new KMap<>();
+    private final KMap<String, PlayerAdaptation> adaptations = new KMap<>();
+    private final KList<XPMultiplier> multipliers = new KList<>();
+    private final KMap<String, RewardStalenessState> activityStaleness = new KMap<>();
 
     private static double diff(long a, long b) {
         return Math.abs(a - b / (double) (a == 0 ? 1 : a));
@@ -90,7 +93,7 @@ public class PlayerSkillLine {
     private void updateFreshness() {
         double max = 1D + (getLevel() * 0.004);
 
-        freshness += (0.1 * freshness) + 0.00124;
+        freshness += (0.08 * freshness) + 0.003;
         if (freshness > max) freshness = max;
         if (freshness < 0.01) freshness = 0.01;
         if (freshness < rfreshness) rfreshness -= ((rfreshness - freshness) * 0.003);
@@ -99,9 +102,13 @@ public class PlayerSkillLine {
 
     private void updateMultiplier(PlayerData data) {
         double m = rfreshness;
-        for (XPMultiplier i : multipliers.copy()) {
-            if (i.isExpired()) multipliers.remove(i);
-            else m += i.getMultiplier();
+        for (int i = multipliers.size() - 1; i >= 0; i--) {
+            XPMultiplier active = multipliers.get(i);
+            if (active == null || active.isExpired()) {
+                multipliers.remove(i);
+                continue;
+            }
+            m += active.getMultiplier();
         }
 
         m = Math.max(0.01, Math.min(m, 1000));
@@ -127,9 +134,18 @@ public class PlayerSkillLine {
     }
 
     public void giveXP(Notifier p, double xp) {
-//        freshness -= xp * 0.005; // Increased from 0.001
-        freshness -= Math.pow(xp, 2) * 0.0001; // Exponential decrease, attempt
-        xp = multiplier * xp;
+        giveXP(p, xp, null);
+    }
+
+    public void giveXP(Notifier p, double xp, String rewardKey) {
+        freshness -= 0.012 + (xp * 0.00025);
+
+        long now = System.currentTimeMillis();
+        lastXpTimestamp = now;
+        monotonyCounter++;
+        monotonyMultiplier = computeStalenessMultiplier(xp, rewardKey, now);
+
+        xp = multiplier * monotonyMultiplier * xp;
         this.xp += xp;
 
         if (p != null) {
@@ -137,8 +153,147 @@ public class PlayerSkillLine {
             if (AdaptConfig.get().isActionbarNotifyXp()) {
                 p.notifyXP(line, xp);
             }
-
         }
+    }
+
+    public void relaxStalenessForActivitySwitch() {
+        AdaptConfig.FarmPrevention prevention = AdaptConfig.get().getFarmPrevention();
+        if (prevention == null || !prevention.isEnabled()) {
+            monotonyCounter = 0;
+            monotonyMultiplier = 1.0;
+            return;
+        }
+
+        double factor = clamp(prevention.getCrossSkillRecoveryFactor(), 0.0, 1.0);
+        applyRecoveryFactor(skillStaleness, factor);
+        for (RewardStalenessState state : activityStaleness.values()) {
+            applyRecoveryFactor(state, factor);
+        }
+        monotonyCounter = 0;
+    }
+
+    private double computeStalenessMultiplier(double awardXp, String rewardKey, long now) {
+        if (awardXp <= 0) {
+            return 1.0;
+        }
+
+        AdaptConfig.FarmPrevention prevention = AdaptConfig.get().getFarmPrevention();
+        if (prevention == null || !prevention.isEnabled()) {
+            return 1.0;
+        }
+
+        double skillGain = prevention.getSkillBasePressure() + (awardXp * prevention.getSkillXpPressure());
+        double skillMultiplier = applyStaleness(
+                ensureSkillStaleness(),
+                now,
+                skillGain,
+                prevention.getSkillRecoveryMillis(),
+                prevention.getSkillDecayCurve(),
+                prevention.getSkillFloorMultiplier()
+        );
+
+        double activityMultiplier = 1.0;
+        if (prevention.isPerActivityTracking()) {
+            String normalizedRewardKey = normalizeRewardKey(rewardKey);
+            if (normalizedRewardKey != null) {
+                cleanupActivityStaleness(now, prevention.getActivityStateTtlMillis());
+                RewardStalenessState activityState = activityStaleness.computeIfAbsent(normalizedRewardKey, k -> new RewardStalenessState());
+                double activityGain = prevention.getActivityBasePressure() + (awardXp * prevention.getActivityXpPressure());
+                activityMultiplier = applyStaleness(
+                        activityState,
+                        now,
+                        activityGain,
+                        prevention.getActivityRecoveryMillis(),
+                        prevention.getActivityDecayCurve(),
+                        prevention.getActivityFloorMultiplier()
+                );
+            }
+        }
+
+        double floor = clamp(prevention.getSkillFloorMultiplier(), 0.0, 1.0);
+        if (prevention.isPerActivityTracking()) {
+            floor = clamp(floor * prevention.getActivityFloorMultiplier(), 0.0, 1.0);
+        }
+        return clamp(skillMultiplier * activityMultiplier, floor, 1.0);
+    }
+
+    private RewardStalenessState ensureSkillStaleness() {
+        if (skillStaleness == null) {
+            skillStaleness = new RewardStalenessState();
+        }
+        return skillStaleness;
+    }
+
+    private double applyStaleness(RewardStalenessState state, long now, double gain, long recoveryMillis, double curve, double floor) {
+        if (state == null) {
+            return 1.0;
+        }
+
+        decayState(state, now, recoveryMillis);
+        state.setPressure(clamp(state.getPressure() + Math.max(0.0, gain), 0.0, 100000.0));
+        state.setLastAwardAt(now);
+
+        double clampedFloor = clamp(floor, 0.0, 1.0);
+        if (curve <= 0) {
+            return 1.0;
+        }
+
+        double scaled = Math.exp(-state.getPressure() / curve);
+        return clamp(clampedFloor + ((1.0 - clampedFloor) * scaled), clampedFloor, 1.0);
+    }
+
+    private void decayState(RewardStalenessState state, long now, long recoveryMillis) {
+        if (state == null || recoveryMillis <= 0) {
+            return;
+        }
+
+        long lastAward = state.getLastAwardAt();
+        if (lastAward <= 0) {
+            state.setLastAwardAt(now);
+            return;
+        }
+
+        long elapsed = Math.max(0, now - lastAward);
+        if (elapsed == 0) {
+            return;
+        }
+
+        double decay = Math.exp(-(double) elapsed / (double) recoveryMillis);
+        state.setPressure(Math.max(0.0, state.getPressure() * decay));
+    }
+
+    private void cleanupActivityStaleness(long now, long ttl) {
+        if (ttl <= 0) {
+            return;
+        }
+        if (now - lastStalenessCleanup < 15000) {
+            return;
+        }
+
+        activityStaleness.entrySet().removeIf(entry -> {
+            RewardStalenessState state = entry.getValue();
+            return state == null || (state.getLastAwardAt() > 0 && now - state.getLastAwardAt() > ttl);
+        });
+        lastStalenessCleanup = now;
+    }
+
+    private void applyRecoveryFactor(RewardStalenessState state, double factor) {
+        if (state == null) {
+            return;
+        }
+        state.setPressure(Math.max(0.0, state.getPressure() * factor));
+    }
+
+    private String normalizeRewardKey(String rewardKey) {
+        if (rewardKey == null) {
+            return null;
+        }
+        String normalized = rewardKey.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     public void giveXPFresh(Notifier p, double xp) {
@@ -285,5 +440,12 @@ public class PlayerSkillLine {
         }
 
         return false;
+    }
+
+    @Data
+    @NoArgsConstructor
+    public static class RewardStalenessState {
+        private double pressure = 0;
+        private long lastAwardAt = 0;
     }
 }

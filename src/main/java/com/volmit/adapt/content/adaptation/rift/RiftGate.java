@@ -20,10 +20,15 @@ package com.volmit.adapt.content.adaptation.rift;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.event.AdaptAdaptationTeleportEvent;
 import com.volmit.adapt.content.item.BoundEyeOfEnder;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -35,15 +40,16 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
 
 
 public class RiftGate extends SimpleAdaptation<RiftGate.Config> {
     public RiftGate() {
         super("rift-gate");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("rift", "gate", "description"));
-        setDisplayName(Localizer.dLocalize("rift", "gate", "name"));
-        setIcon(Material.END_PORTAL_FRAME);
+        setDescription(Localizer.dLocalize("rift.gate.description"));
+        setDisplayName(Localizer.dLocalize("rift.gate.name"));
+        setIcon(Material.RESPAWN_ANCHOR);
         setBaseCost(0);
         setCostFactor(0);
         setMaxLevel(1);
@@ -56,13 +62,31 @@ public class RiftGate extends SimpleAdaptation<RiftGate.Config> {
                 .ingredient(Material.EMERALD)
                 .result(BoundEyeOfEnder.io.withData(new BoundEyeOfEnder.Data(null)))
                 .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ENDER_PEARL)
+                .key("challenge_rift_gate_100")
+                .title(Localizer.dLocalize("advancement.challenge_rift_gate_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_gate_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.ENDER_EYE)
+                        .key("challenge_rift_gate_50k_dist")
+                        .title(Localizer.dLocalize("advancement.challenge_rift_gate_50k_dist.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_rift_gate_50k_dist.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_rift_gate_100", "rift.gate.teleports", 100, 400);
+        registerMilestone("challenge_rift_gate_50k_dist", "rift.gate.total-distance", 50000, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.YELLOW + Localizer.dLocalize("rift", "gate", "lore1"));
-        v.addLore(C.RED + Localizer.dLocalize("rift", "gate", "lore2"));
-        v.addLore(C.ITALIC + Localizer.dLocalize("rift", "gate", "lore3") + C.UNDERLINE + C.RED + Localizer.dLocalize("rift", "gate", "lore4"));
+        v.addLore(C.YELLOW + Localizer.dLocalize("rift.gate.lore1"));
+        v.addLore(C.RED + Localizer.dLocalize("rift.gate.lore2"));
+        v.addLore(C.ITALIC + Localizer.dLocalize("rift.gate.lore3") + C.UNDERLINE + C.RED + Localizer.dLocalize("rift.gate.lore4"));
     }
 
 
@@ -141,7 +165,7 @@ public class RiftGate extends SimpleAdaptation<RiftGate.Config> {
     }
 
     private void linkEye(Player p, Location location) {
-        if (getConfig().showParticles) {
+        if (areParticlesEnabled()) {
             vfxCuboidOutline(location.getBlock(), location.add(0, 1, 0).getBlock(), Particle.REVERSE_PORTAL);
         }
         SoundPlayer sp = SoundPlayer.of(p);
@@ -185,20 +209,36 @@ public class RiftGate extends SimpleAdaptation<RiftGate.Config> {
         sp.play(l, Sound.BLOCK_LODESTONE_PLACE, 1f, 0.1f);
         sp.play(l, Sound.BLOCK_BELL_RESONATE, 1f, 0.1f);
 
-        J.a(() -> {
-            long dur = 4000; // time in miliseconds
-            double radius = 2.0;
-            double adder = 0.0;
-            Color color = Color.fromBGR(0, 0, 0);
-            vfxFastRing(p.getLocation(), radius, color);
-            while (dur > 0) {
+        new BukkitRunnable() {
+            private long dur = 4000;
+            private double radius = 2.0;
+            private double adder = 0.0;
+            private final Color color = Color.fromBGR(0, 0, 0);
+            private boolean initialRingShown = false;
+
+            @Override
+            public void run() {
+                if (!p.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                if (!initialRingShown) {
+                    vfxFastRing(p.getLocation(), radius, color);
+                    initialRingShown = true;
+                }
+
                 dur -= 50;
+                if (dur <= 0) {
+                    cancel();
+                    return;
+                }
+
                 adder += 0.02;
-                radius *= 0.9; // reduce the radius by 20%
+                radius *= 0.9;
                 vfxFastRing(p.getLocation().add(0, adder, 0), radius, color);
-                J.sleep(50);
             }
-        });
+        }.runTaskTimer(Adapt.instance, 0L, 1L);
         vfxLevelUp(p);
         sp.play(p.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 5.35f, 0.1f);
         J.s(() -> {
@@ -208,6 +248,9 @@ public class RiftGate extends SimpleAdaptation<RiftGate.Config> {
                 return;
             }
 
+            getPlayer(p).getData().addStat("rift.teleports", 1);
+            getPlayer(p).getData().addStat("rift.gate.teleports", 1);
+            getPlayer(p).getData().addStat("rift.gate.total-distance", (int) p.getLocation().distance(l));
             p.teleport(l, PlayerTeleportEvent.TeleportCause.PLUGIN);
             vfxLevelUp(p);
             sp.play(p.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 5.35f, 0.1f);
@@ -230,10 +273,15 @@ public class RiftGate extends SimpleAdaptation<RiftGate.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Craft a gate item to teleport to a marked location.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Consume On Use for the Rift Gate adaptation.", impact = "True enables this behavior and false disables it.")
         boolean consumeOnUse = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Rift Gate adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
     }
 }

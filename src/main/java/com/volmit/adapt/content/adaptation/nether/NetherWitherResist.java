@@ -19,9 +19,14 @@
 package com.volmit.adapt.content.adaptation.nether;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
@@ -31,30 +36,46 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class NetherWitherResist extends SimpleAdaptation<NetherWitherResist.Config> {
-
-    private static final Random RANDOM = new Random();
 
     public NetherWitherResist() {
         super("nether-wither-resist");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("nether", "witherresist", "description"));
-        setDisplayName(Localizer.dLocalize("nether", "witherresist", "name"));
+        setDescription(Localizer.dLocalize("nether.wither_resist.description"));
+        setDisplayName(Localizer.dLocalize("nether.wither_resist.name"));
         setIcon(Material.NETHERITE_CHESTPLATE);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setInterval(9283);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WITHER_ROSE)
+                .key("challenge_nether_wither_100")
+                .title(Localizer.dLocalize("advancement.challenge_nether_wither_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_nether_wither_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.NETHER_STAR)
+                        .key("challenge_nether_wither_1k")
+                        .title(Localizer.dLocalize("advancement.challenge_nether_wither_1k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_nether_wither_1k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_nether_wither_100", "nether.wither-resist.negated", 100, 300);
+        registerMilestone("challenge_nether_wither_1k", "nether.wither-resist.negated", 1000, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
         int chance = (int) (getConfig().basePieceChance + getConfig().getChanceAddition() * level);
-        v.addLore(C.GREEN + "+ " + chance + "%" + C.GRAY + Localizer.dLocalize("nether", "witherresist", "lore1"));
-        v.addLore(C.GRAY + " " + Localizer.dLocalize("nether", "witherresist", "lore1") + C.DARK_GRAY + Localizer.dLocalize("nether", "witherresist", "lore2"));
+        v.addLore(C.GREEN + "+ " + chance + "%" + C.GRAY + Localizer.dLocalize("nether.wither_resist.lore1"));
+        v.addLore(C.GRAY + " " + Localizer.dLocalize("nether.wither_resist.lore1") + C.DARK_GRAY + Localizer.dLocalize("nether.wither_resist.lore2"));
     }
 
     @EventHandler
@@ -66,8 +87,10 @@ public class NetherWitherResist extends SimpleAdaptation<NetherWitherResist.Conf
             if (!hasAdaptation(p))
                 return;
             double chance = getTotalChange(p);
-            if (RANDOM.nextInt(0, 101) <= chance)
+            if (ThreadLocalRandom.current().nextInt(101) <= chance) {
                 e.setCancelled(true);
+                getPlayer(p).getData().addStat("nether.wither-resist.negated", 1);
+            }
         }
     }
 
@@ -100,14 +123,23 @@ public class NetherWitherResist extends SimpleAdaptation<NetherWitherResist.Conf
 
     @Data
     @NoArgsConstructor
+    @ConfigDescription("Wearing Netherite Armor has a chance to negate the wither effect.")
     public static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         public boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         private boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         private int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         private double costFactor = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         private int maxLevel = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         private int initialCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Base Piece Chance for the Nether Wither Resist adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         private double basePieceChance = 10;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Chance Addition for the Nether Wither Resist adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         private double chanceAddition = 5;
     }
 }

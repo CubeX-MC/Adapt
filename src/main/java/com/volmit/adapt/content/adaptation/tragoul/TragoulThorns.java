@@ -19,10 +19,16 @@
 package com.volmit.adapt.content.adaptation.tragoul;
 
 import com.volmit.adapt.Adapt;
+import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import de.slikey.effectlib.effect.BleedEffect;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
@@ -42,21 +48,46 @@ public class TragoulThorns extends SimpleAdaptation<TragoulThorns.Config> {
     public TragoulThorns() {
         super("tragoul-thorns");
         registerConfiguration(TragoulThorns.Config.class);
-        setDescription(Localizer.dLocalize("tragoul", "thorns", "description"));
-        setDisplayName(Localizer.dLocalize("tragoul", "thorns", "name"));
-        setIcon(Material.ECHO_SHARD);
+        setDescription(Localizer.dLocalize("tragoul.thorns.description"));
+        setDisplayName(Localizer.dLocalize("tragoul.thorns.name"));
+        setIcon(Material.CACTUS);
         setInterval(25000);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         cooldowns = new HashMap<>();
-
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.CACTUS)
+                .key("challenge_tragoul_thorns_500")
+                .title(Localizer.dLocalize("advancement.challenge_tragoul_thorns_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_tragoul_thorns_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.IRON_CHESTPLATE)
+                        .key("challenge_tragoul_thorns_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_tragoul_thorns_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_tragoul_thorns_5k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_tragoul_thorns_500", "tragoul.thorns.damage-reflected", 500, 400);
+        registerMilestone("challenge_tragoul_thorns_5k", "tragoul.thorns.damage-reflected", 5000, 1500);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.CACTUS)
+                .key("challenge_tragoul_thorns_kill")
+                .title(Localizer.dLocalize("advancement.challenge_tragoul_thorns_kill.title"))
+                .description(Localizer.dLocalize("advancement.challenge_tragoul_thorns_kill.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "" + getConfig().damageMultiplierPerLevel * level + "x " + Localizer.dLocalize("tragoul", "thorns", "lore1"));
+        v.addLore(C.GREEN + "" + getConfig().damageMultiplierPerLevel * level + "x " + Localizer.dLocalize("tragoul.thorns.lore1"));
     }
 
 
@@ -82,14 +113,20 @@ public class TragoulThorns extends SimpleAdaptation<TragoulThorns.Config> {
             }
 
             if (le != null) {
-                if (getConfig().showParticles) {
+                if (areParticlesEnabled()) {
                     BleedEffect blood = new BleedEffect(Adapt.instance.adaptEffectManager);  // Enemy gets blood
                     blood.setEntity(le);
                     blood.height = -1;
                     blood.iterations = 1;
                     blood.start();
                 }
-                le.damage(getConfig().damageMultiplierPerLevel * getLevel(p), p);
+                double reflectedDamage = getConfig().damageMultiplierPerLevel * getLevel(p);
+                double healthBefore = le.getHealth();
+                le.damage(reflectedDamage, p);
+                getPlayer(p).getData().addStat("tragoul.thorns.damage-reflected", (int) reflectedDamage);
+                if (healthBefore <= reflectedDamage && AdaptConfig.get().isAdvancements() && !getPlayer(p).getData().isGranted("challenge_tragoul_thorns_kill")) {
+                    getPlayer(p).getAdvancementHandler().grant("challenge_tragoul_thorns_kill");
+                }
             }
         }
     }
@@ -110,14 +147,23 @@ public class TragoulThorns extends SimpleAdaptation<TragoulThorns.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Reflect damage back to your attacker.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Tragoul Thorns adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
-        int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
+        int baseCost = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
-        int initialCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
+        int initialCost = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Multiplier Per Level for the Tragoul Thorns adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageMultiplierPerLevel = 1.0;
-        double costFactor = 1.10;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.72;
     }
 }

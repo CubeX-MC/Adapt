@@ -12,15 +12,16 @@ import com.velocitypowered.api.plugin.PluginManager;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.volmit.adapt.util.redis.VelocityConfig;
-import net.byteflux.libby.Library;
-import net.byteflux.libby.VelocityLibraryManager;
+import com.moandjiezana.toml.Toml;
+import io.github.slimjar.app.builder.VelocityApplicationBuilder;
 import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 @Plugin(id = BuildConstants.ID,
         name = BuildConstants.NAME,
@@ -33,10 +34,11 @@ public class AdaptVelocity {
             .setPrettyPrinting()
             .create();
 
-    private final VelocityLibraryManager<AdaptVelocity> libby;
+    private final Runnable libraries;
     private final Logger logger;
     private final ProxyServer proxy;
-    private final File configFile;
+    private final File configTomlFile;
+    private final File legacyConfigFile;
     private RedisHandler handler;
 
     @Inject
@@ -44,27 +46,23 @@ public class AdaptVelocity {
                          ProxyServer proxy,
                          PluginManager pluginManager,
                          @DataDirectory Path dataFolder) {
-        libby = new VelocityLibraryManager<>(logger, dataFolder, pluginManager, this);
-        libby.addMavenCentral();
-
+        libraries = () -> {
+            logger.info("Loading libraries...");
+            new VelocityApplicationBuilder(pluginManager, this)
+                    .downloadDirectoryPath(dataFolder.resolve(".libs"))
+                    .logger(logger)
+                    .build();
+            logger.info("Libraries loaded.");
+        };
         this.logger = logger;
         this.proxy = proxy;
-        this.configFile = dataFolder.resolve("config.yml").toFile();
+        this.configTomlFile = dataFolder.resolve("config.toml").toFile();
+        this.legacyConfigFile = dataFolder.resolve("config.yml").toFile();
     }
 
     @Subscribe
     public void onInitialize(ProxyInitializeEvent event) throws IOException {
-        netty("common");
-        netty("handler");
-        netty("buffer");
-        netty("codec");
-        netty("resolver");
-        netty("transport");
-        netty("transport-native-unix-common");
-        dependency("io.lettuce:lettuce-core:6.5.1.RELEASE");
-        dependency("io.projectreactor:reactor-core:3.6.6");
-        dependency("org.reactivestreams:reactive-streams:1.0.4");
-
+        libraries.run();
         load();
     }
 
@@ -89,42 +87,87 @@ public class AdaptVelocity {
     }
 
     private void load() throws IOException {
-        if (!configFile.exists()) {
-            logger.info("Config file does not exist. Creating one.");
-            if (!configFile.getParentFile().exists() && !configFile.getParentFile().mkdirs())
-                throw new IOException("Unable to create directory " + configFile.getParentFile());
-            try (FileWriter writer = new FileWriter(configFile)) {
-                GSON.toJson(new VelocityConfig(), writer);
-            }
-            return;
+        if (!configTomlFile.getParentFile().exists() && !configTomlFile.getParentFile().mkdirs()) {
+            throw new IOException("Unable to create directory " + configTomlFile.getParentFile());
         }
 
         VelocityConfig config;
-        try (FileReader reader = new FileReader(configFile)) {
-            config = GSON.fromJson(reader, VelocityConfig.class);
+        if (configTomlFile.exists()) {
+            config = readToml(configTomlFile);
+            String raw = Files.readString(configTomlFile.toPath());
+            String canonical = toToml(config);
+            if (!normalize(raw).equals(normalize(canonical))) {
+                Files.writeString(configTomlFile.toPath(), canonical);
+            }
+        } else if (legacyConfigFile.exists()) {
+            try (FileReader reader = new FileReader(legacyConfigFile)) {
+                config = GSON.fromJson(reader, VelocityConfig.class);
+            }
+            if (config == null) {
+                throw new IOException("Failed to parse legacy velocity config.yml");
+            }
+            Files.writeString(configTomlFile.toPath(), toToml(config));
+            logger.info("Migrated legacy velocity config config.yml -> config.toml.");
+        } else {
+            config = new VelocityConfig();
+            Files.writeString(configTomlFile.toPath(), toToml(config));
+            logger.info("Created missing velocity config [config.toml] from defaults.");
         }
 
         this.handler = new RedisHandler(config.isDebug(), config.createClient());
         proxy.getEventManager().register(this, handler);
     }
 
-    private void dependency(String dependency) {
-        String[] part = dependency.split(":", 3);
-        if (part.length != 3) throw new IllegalArgumentException("Invalid dependency: " + dependency);
-        libby.loadLibrary(Library.builder()
-                .id(part[1])
-                .groupId(part[0])
-                .artifactId(part[1])
-                .version(part[2])
-                .build());
+    private VelocityConfig readToml(File file) throws IOException {
+        try {
+            String raw = Files.readString(file.toPath());
+            Map<String, Object> map = new Toml().read(raw).toMap();
+            return GSON.fromJson(GSON.toJson(map), VelocityConfig.class);
+        } catch (Throwable e) {
+            throw new IOException("Failed to parse config.toml", e);
+        }
     }
 
-    private void netty(String artifactId) {
-        libby.loadLibrary(Library.builder()
-                .id("netty-" + artifactId)
-                .groupId("io.netty")
-                .artifactId("netty-" + artifactId)
-                .version("4.1.115.Final")
-                .build());
+    private String toToml(VelocityConfig config) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("# Adapt Velocity configuration\n");
+        sb.append("# This file is canonicalized on load and supports live reload through /velocity reload.\n\n");
+        sb.append("# Enables verbose velocity-side debug logging.\n");
+        sb.append("# Effect: true prints extra diagnostics; false keeps logs quiet.\n");
+        sb.append("debug = ").append(config.isDebug()).append('\n');
+        sb.append('\n');
+        sb.append("# Redis host address used by the velocity bridge.\n");
+        sb.append("# Effect: change this to point at your Redis server.\n");
+        sb.append("host = ").append(quote(config.getHost())).append('\n');
+        sb.append('\n');
+        sb.append("# Redis TCP port.\n");
+        sb.append("# Effect: use the port exposed by your Redis service.\n");
+        sb.append("port = ").append(config.getPort()).append('\n');
+        sb.append('\n');
+        sb.append("# Optional Redis username.\n");
+        sb.append("# Effect: leave empty unless your Redis ACL requires it.\n");
+        sb.append("username = ").append(quote(config.getUsername())).append('\n');
+        sb.append('\n');
+        sb.append("# Optional Redis password.\n");
+        sb.append("# Effect: set this when your Redis server requires authentication.\n");
+        sb.append("password = ").append(quote(config.getPassword())).append('\n');
+        return normalize(sb.toString()) + '\n';
+    }
+
+    private String quote(String value) {
+        String safe = value == null ? "" : value;
+        return "\"" + safe
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t") + "\"";
+    }
+
+    private String normalize(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("\r\n", "\n").stripTrailing();
     }
 }

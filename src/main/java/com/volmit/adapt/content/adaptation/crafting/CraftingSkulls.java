@@ -19,13 +19,18 @@
 package com.volmit.adapt.content.adaptation.crafting;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdvancementSpec;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
 import com.volmit.adapt.api.recipe.MaterialChar;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
@@ -35,9 +40,9 @@ public class CraftingSkulls extends SimpleAdaptation<CraftingSkulls.Config> {
     public CraftingSkulls() {
         super("crafting-skulls");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("crafting", "skulls", "description"));
-        setDisplayName(Localizer.dLocalize("crafting", "skulls", "name"));
-        setIcon(Material.WITHER_SKELETON_SKULL);
+        setDescription(Localizer.dLocalize("crafting.skulls.description"));
+        setDisplayName(Localizer.dLocalize("crafting.skulls.name"));
+        setIcon(Material.SKELETON_SKULL);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
@@ -93,18 +98,48 @@ public class CraftingSkulls extends SimpleAdaptation<CraftingSkulls.Config> {
                         "III"))
                 .result(new ItemStack(Material.DRAGON_HEAD, 1))
                 .build());
+        AdvancementSpec skulls100 = AdvancementSpec.challenge(
+                "challenge_crafting_skulls_100",
+                Material.WITHER_SKELETON_SKULL,
+                Localizer.dLocalize("advancement.challenge_crafting_skulls_100.title"),
+                Localizer.dLocalize("advancement.challenge_crafting_skulls_100.description")
+        );
+        AdvancementSpec skulls10 = AdvancementSpec.challenge(
+                "challenge_crafting_skulls_10",
+                Material.SKELETON_SKULL,
+                Localizer.dLocalize("advancement.challenge_crafting_skulls_10.title"),
+                Localizer.dLocalize("advancement.challenge_crafting_skulls_10.description")
+        ).withChild(skulls100);
+        registerAdvancementSpec(skulls10);
+        registerStatTracker(skulls10.statTracker("crafting.skulls.skulls-crafted", 10, 300));
+        registerStatTracker(skulls100.statTracker("crafting.skulls.skulls-crafted", 100, 1000));
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("crafting", "skulls", "lore1"));
-        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting", "skulls", "lore2"));
-        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting", "skulls", "lore3"));
-        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting", "skulls", "lore4"));
-        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting", "skulls", "lore5"));
-        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting", "skulls", "lore6"));
+        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("crafting.skulls.lore1"));
+        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting.skulls.lore2"));
+        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting.skulls.lore3"));
+        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting.skulls.lore4"));
+        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting.skulls.lore5"));
+        v.addLore(C.YELLOW + "- " + C.GRAY + Localizer.dLocalize("crafting.skulls.lore6"));
     }
 
+
+    @EventHandler
+    public void on(CraftItemEvent e) {
+        if (e.isCancelled()) return;
+        Player p = (Player) e.getWhoClicked();
+        if (!hasAdaptation(p)) return;
+        if (e.getRecipe() != null) {
+            Material result = e.getRecipe().getResult().getType();
+            if (result == Material.SKELETON_SKULL || result == Material.WITHER_SKELETON_SKULL
+                    || result == Material.ZOMBIE_HEAD || result == Material.CREEPER_HEAD
+                    || result == Material.DRAGON_HEAD) {
+                getPlayer(p).getData().addStat("crafting.skulls.skulls-crafted", 1);
+            }
+        }
+    }
 
     @Override
     public void onTick() {
@@ -121,12 +156,19 @@ public class CraftingSkulls extends SimpleAdaptation<CraftingSkulls.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Craft Mob Skulls using materials surrounding a Bone Block.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 8;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

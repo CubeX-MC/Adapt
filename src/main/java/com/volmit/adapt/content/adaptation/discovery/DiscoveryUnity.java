@@ -20,9 +20,14 @@ package com.volmit.adapt.content.adaptation.discovery;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.world.AdaptPlayer;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.api.world.PlayerSkillLine;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -39,19 +44,37 @@ public class DiscoveryUnity extends SimpleAdaptation<DiscoveryUnity.Config> {
     public DiscoveryUnity() {
         super("discovery-unity");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("discovery", "unity", "description"));
-        setDisplayName(Localizer.dLocalize("discovery", "unity", "name"));
-        setIcon(Material.REDSTONE);
+        setDescription(Localizer.dLocalize("discovery.unity.description"));
+        setDisplayName(Localizer.dLocalize("discovery.unity.name"));
+        setIcon(Material.END_CRYSTAL);
         setBaseCost(getConfig().baseCost);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
         setInterval(666);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.EXPERIENCE_BOTTLE)
+                .key("challenge_discovery_unity_5k")
+                .title(Localizer.dLocalize("advancement.challenge_discovery_unity_5k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_discovery_unity_5k.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.ENCHANTING_TABLE)
+                        .key("challenge_discovery_unity_50k")
+                        .title(Localizer.dLocalize("advancement.challenge_discovery_unity_50k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_discovery_unity_50k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_discovery_unity_5k", "discovery.unity.orbs-distributed", 5000, 400);
+        registerMilestone("challenge_discovery_unity_50k", "discovery.unity.orbs-distributed", 50000, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Form.f(getXPGained(getLevelPercent(level), 1), 0) + " " + Localizer.dLocalize("discovery", "unity", "lore1") + C.GRAY + " " + Localizer.dLocalize("discovery", "unity", "lore2"));
+        v.addLore(C.GREEN + "+ " + Form.f(getXPGained(getLevelPercent(level), 1), 0) + " " + Localizer.dLocalize("discovery.unity.lore1") + C.GRAY + " " + Localizer.dLocalize("discovery.unity.lore2"));
     }
 
     //Give random XP to the player when they gain XP!
@@ -69,6 +92,7 @@ public class DiscoveryUnity extends SimpleAdaptation<DiscoveryUnity.Config> {
                 PlayerSkillLine skill = skills.get(RANDOM.nextInt(skills.size()));
                 //give them a random amount of XP in that skill
                 skill.giveXPFresh(Adapt.instance.getAdaptServer().getPlayer(p).getNot(), getXPGained(getLevelPercent(getLevel(p)), RANDOM.nextInt(3) + 1));
+                getPlayer(p).getData().addStat("discovery.unity.orbs-distributed", 1);
             }
 
         }
@@ -94,15 +118,25 @@ public class DiscoveryUnity extends SimpleAdaptation<DiscoveryUnity.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Collecting Experience Orbs adds XP to random skills.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Xp Gained Multiplier for the Discovery Unity adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double xpGainedMultiplier = 8;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Xp Boost Multiplier for the Discovery Unity adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double xpBoostMultiplier = 0.01;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Xp Boost Duration for the Discovery Unity adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int xpBoostDuration = 15000;
     }
 }

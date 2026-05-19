@@ -19,8 +19,17 @@
 package com.volmit.adapt.content.adaptation.pickaxe;
 
 import com.volmit.adapt.Adapt;
+import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
+import com.volmit.adapt.api.world.PlayerAdaptation;
+import com.volmit.adapt.api.world.PlayerSkillLine;
+import com.volmit.adapt.content.item.ItemListings;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -35,24 +44,43 @@ import org.bukkit.inventory.ItemStack;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.volmit.adapt.util.data.Metadata.VEIN_MINED;
+
 public class PickaxeVeinminer extends SimpleAdaptation<PickaxeVeinminer.Config> {
     public PickaxeVeinminer() {
         super("pickaxe-veinminer");
         registerConfiguration(PickaxeVeinminer.Config.class);
-        setDescription(Localizer.dLocalize("pickaxe", "veinminer", "description"));
-        setDisplayName(Localizer.dLocalize("pickaxe", "veinminer", "name"));
+        setDescription(Localizer.dLocalize("pickaxe.vein_miner.description"));
+        setDisplayName(Localizer.dLocalize("pickaxe.vein_miner.name"));
         setIcon(Material.IRON_PICKAXE);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         setInterval(8484);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.DIAMOND_PICKAXE)
+                .key("challenge_pickaxe_veinminer_2500")
+                .title(Localizer.dLocalize("advancement.challenge_pickaxe_veinminer_2500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_pickaxe_veinminer_2500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.DIAMOND_PICKAXE)
+                .key("challenge_pickaxe_veinminer_20")
+                .title(Localizer.dLocalize("advancement.challenge_pickaxe_veinminer_20.title"))
+                .description(Localizer.dLocalize("advancement.challenge_pickaxe_veinminer_20.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_pickaxe_veinminer_2500", "pickaxe.veinminer.ores-veinmined", 2500, 500);
     }
 
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("pickaxe", "veinminer", "lore1"));
-        v.addLore(C.GREEN + "" + (level + getConfig().baseRange) + C.GRAY + " " + Localizer.dLocalize("pickaxe", "veinminer", "lore2"));
-        v.addLore(C.ITALIC + Localizer.dLocalize("pickaxe", "veinminer", "lore3"));
+        v.addLore(C.GREEN + Localizer.dLocalize("pickaxe.vein_miner.lore1"));
+        v.addLore(C.GREEN + "" + (level + getConfig().baseRange) + C.GRAY + " " + Localizer.dLocalize("pickaxe.vein_miner.lore2"));
+        v.addLore(C.ITALIC + Localizer.dLocalize("pickaxe.vein_miner.lore3"));
     }
 
     private int getRadius(int lvl) {
@@ -64,6 +92,10 @@ public class PickaxeVeinminer extends SimpleAdaptation<PickaxeVeinminer.Config> 
         if (e.isCancelled()) {
             return;
         }
+        if (VEIN_MINED.get(e.getBlock())) {
+            return;
+        }
+
         Player p = e.getPlayer();
         if (!hasAdaptation(p)) {
             return;
@@ -77,12 +109,14 @@ public class PickaxeVeinminer extends SimpleAdaptation<PickaxeVeinminer.Config> 
                 return;
             }
         }
+        VEIN_MINED.add(e.getBlock());
 
         Block block = e.getBlock();
         Map<Location, Block> blockMap = new HashMap<>();
         blockMap.put(block.getLocation(), block);
 
-        for (int i = 0; i < getRadius(getLevel(p)); i++) {
+        int radius = getRadius(getLevel(p));
+        for (int i = 0; i < radius; i++) {
             for (int x = -i; x <= i; x++) {
                 for (int y = -i; y <= i; y++) {
                     for (int z = -i; z <= i; z++) {
@@ -97,21 +131,32 @@ public class PickaxeVeinminer extends SimpleAdaptation<PickaxeVeinminer.Config> 
                 }
             }
         }
+
+        int veinSize = blockMap.size();
+        getPlayer(p).getData().addStat("pickaxe.veinminer.ores-veinmined", veinSize);
+        if (veinSize >= 20 && AdaptConfig.get().isAdvancements() && !getPlayer(p).getData().isGranted("challenge_pickaxe_veinminer_20")) {
+            getPlayer(p).getAdvancementHandler().grant("challenge_pickaxe_veinminer_20");
+        }
+
         J.s(() -> {
             for (Location l : blockMap.keySet()) {
                 if (!canBlockBreak(p, l)) {
                     Adapt.verbose("Player " + p.getName() + " doesn't have permission.");
                     continue;
                 }
-                Block b = e.getBlock().getWorld().getBlockAt(l);
-                if (getPlayer(p).getData().getSkillLines() != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations() != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations().get("pickaxe-autosmelt") != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations().get("pickaxe-autosmelt").getLevel() > 0) {
-                    if (getPlayer(p).getData().getSkillLines() != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations() != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations().get("pickaxe-drop-to-inventory") != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations().get("pickaxe-drop-to-inventory").getLevel() > 0) {
+                Block b = block.getWorld().getBlockAt(l);
+                PlayerSkillLine line = getPlayer(p).getData().getSkillLineNullable("pickaxe");
+                PlayerAdaptation autoSmelt = line != null ? line.getAdaptation("pickaxe-autosmelt") : null;
+                PlayerAdaptation drop2Inv = line != null ? line.getAdaptation("pickaxe-drop-to-inventory") : null;
+                VEIN_MINED.add(b);
+                if (autoSmelt != null && autoSmelt.getLevel() > 0 && ItemListings.getSmeltOre().contains(b.getType())) {
+                    if (drop2Inv != null && drop2Inv.getLevel() > 0) {
                         PickaxeAutosmelt.autosmeltBlockDTI(b, p);
                     } else {
                         PickaxeAutosmelt.autosmeltBlock(b, p);
                     }
                 } else {
-                    if (getPlayer(p).getData().getSkillLines() != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations() != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations().get("pickaxe-drop-to-inventory") != null && getPlayer(p).getData().getSkillLines().get("pickaxe").getAdaptations().get("pickaxe-drop-to-inventory").getLevel() > 0) {
+                    if (drop2Inv != null && drop2Inv.getLevel() > 0) {
                         b.getDrops(p.getInventory().getItemInMainHand(), p).forEach(item -> {
                             HashMap<Integer, ItemStack> extra = p.getInventory().addItem(item);
                             extra.forEach((k, v) -> p.getWorld().dropItem(p.getLocation(), v));
@@ -119,15 +164,16 @@ public class PickaxeVeinminer extends SimpleAdaptation<PickaxeVeinminer.Config> 
                         b.setType(Material.AIR);
                     } else {
                         b.breakNaturally(p.getItemInUse());
-                        SoundPlayer spw = SoundPlayer.of(e.getBlock().getWorld());
-                        spw.play(e.getBlock().getLocation(), Sound.BLOCK_FUNGUS_BREAK, 0.4f, 0.25f);
-                        if (getConfig().showParticles) {
-
-                            e.getBlock().getWorld().spawnParticle(Particle.ASH, e.getBlock().getLocation().add(0.5, 0.5, 0.5), 25, 0.5, 0.5, 0.5, 0.1);
+                        SoundPlayer spw = SoundPlayer.of(block.getWorld());
+                        spw.play(block.getLocation(), Sound.BLOCK_FUNGUS_BREAK, 0.4f, 0.25f);
+                        if (areParticlesEnabled()) {
+                            block.getWorld().spawnParticle(Particle.ASH, b.getLocation().add(0.5, 0.5, 0.5), 25, 0.5, 0.5, 0.5, 0.1);
                         }
                     }
                 }
+                VEIN_MINED.remove(b);
             }
+            VEIN_MINED.remove(block);
         });
     }
 
@@ -147,14 +193,23 @@ public class PickaxeVeinminer extends SimpleAdaptation<PickaxeVeinminer.Config> 
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Break connected ore veins at once while sneaking.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Pickaxe Veinminer adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 4;
-        double costFactor = 2.325;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.95;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Base Range for the Pickaxe Veinminer adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int baseRange = 2;
     }
 }

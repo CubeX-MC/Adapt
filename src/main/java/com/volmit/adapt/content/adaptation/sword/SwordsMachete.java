@@ -19,8 +19,13 @@
 package com.volmit.adapt.content.adaptation.sword;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
-import com.volmit.adapt.util.reflect.enums.Materials;
+import com.volmit.adapt.util.config.ConfigDescription;
+import com.volmit.adapt.util.reflect.registries.Materials;
 import lombok.NoArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -35,30 +40,45 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class SwordsMachete extends SimpleAdaptation<SwordsMachete.Config> {
-    private final List<Integer> holds = new ArrayList<>();
-
     public SwordsMachete() {
         super("sword-machete");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("sword", "machete", "description"));
-        setDisplayName(Localizer.dLocalize("sword", "machete", "name"));
+        setDescription(Localizer.dLocalize("sword.machete.description"));
+        setDisplayName(Localizer.dLocalize("sword.machete.name"));
         setIcon(Material.IRON_SWORD);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(5234);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_SWORD)
+                .key("challenge_swords_machete_2500")
+                .title(Localizer.dLocalize("advancement.challenge_swords_machete_2500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_swords_machete_2500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_SWORD)
+                        .key("challenge_swords_machete_25k")
+                        .title(Localizer.dLocalize("advancement.challenge_swords_machete_25k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_swords_machete_25k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_swords_machete_2500", "swords.machete.foliage-cut", 2500, 300);
+        registerMilestone("challenge_swords_machete_25k", "swords.machete.foliage-cut", 25000, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + getRadius(level) + C.GRAY + " " + Localizer.dLocalize("sword", "machete", "lore1"));
-        v.addLore(C.YELLOW + "* " + Form.duration(getCooldownTime(getLevelPercent(level)) * 50D, 1) + C.GRAY + " " + Localizer.dLocalize("sword", "machete", "lore2"));
-        v.addLore(C.RED + "- " + getDamagePerBlock(getLevelPercent(level)) + C.GRAY + " " + Localizer.dLocalize("sword", "machete", "lore3"));
+        v.addLore(C.GREEN + "+ " + getRadius(level) + C.GRAY + " " + Localizer.dLocalize("sword.machete.lore1"));
+        v.addLore(C.YELLOW + "* " + Form.duration(getCooldownTime(getLevelPercent(level)) * 50D, 1) + C.GRAY + " " + Localizer.dLocalize("sword.machete.lore2"));
+        v.addLore(C.RED + "- " + getDamagePerBlock(getLevelPercent(level)) + C.GRAY + " " + Localizer.dLocalize("sword.machete.lore3"));
     }
 
     public double getRadius(int level) {
@@ -142,7 +162,7 @@ public class SwordsMachete extends SimpleAdaptation<SwordsMachete.Config> {
                                     dmg += 1;
                                     J.s(() -> {
                                         i.breakNaturally();
-                                        spw.play(i.getLocation(), Sound.BLOCK_GRASS_BREAK, 0.4f, (float) Math.random() * 1.85f);
+                                        spw.play(i.getLocation(), Sound.BLOCK_GRASS_BREAK, 0.4f, (float) (ThreadLocalRandom.current().nextDouble() * 1.85D));
                                     }, RNG.r.i(0, (getMaxLevel() - lvl * 2) + 1));
                                 }
                             }
@@ -151,12 +171,13 @@ public class SwordsMachete extends SimpleAdaptation<SwordsMachete.Config> {
 
                     if (dmg > 0) {
                         p.setCooldown(is.getType(), getCooldownTime(getLevelPercent(lvl)));
-//                        if (getConfig().showParticles) {
+//                        if (areParticlesEnabled()) {
 //                            ParticleEffect.SWEEP_ATTACK.display(p.getEyeLocation().clone().add(p.getLocation().getDirection().clone().multiply(1.25)).add(0, -0.5, 0), 0f, 0f, 0f, 0.1f, 1, null);
 //                        }
-                        spw.play(p.getEyeLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, (float) (Math.random() / 2) + 0.65f);
+                        spw.play(p.getEyeLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, (float) (ThreadLocalRandom.current().nextDouble() / 2D) + 0.65f);
                         damageHand(p, dmg * getDamagePerBlock(getLevelPercent(lvl)));
-                        getSkill().xp(p, dmg * 11.25);
+                        xp(p, dmg * 11.25, "foliage-cut");
+                        getPlayer(p).getData().addStat("swords.machete.foliage-cut", dmg);
                     }
                 }
             }
@@ -187,19 +208,33 @@ public class SwordsMachete extends SimpleAdaptation<SwordsMachete.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Cut through foliage with ease using a sword.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Swords Machete adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.225;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Radius Base for the Swords Machete adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double radiusBase = 0.6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Radius Factor for the Swords Machete adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double radiusFactor = 2.36;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Ticks Base for the Swords Machete adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double cooldownTicksBase = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Ticks Slowest for the Swords Machete adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double cooldownTicksSlowest = 35;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Tool Damage Base for the Swords Machete adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double toolDamageBase = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Tool Damage Inverse Level Factor for the Swords Machete adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double toolDamageInverseLevelFactor = 5;
     }
 }

@@ -20,10 +20,15 @@ package com.volmit.adapt.content.adaptation.seaborrne;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.ItemListings;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.entity.ExperienceOrb;
@@ -32,26 +37,44 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class SeaborneFishersFantasy extends SimpleAdaptation<SeaborneFishersFantasy.Config> {
 
     public SeaborneFishersFantasy() {
         super("seaborne-fishers-fantasy");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("seaborn", "fishersfantasy", "description"));
-        setDisplayName(Localizer.dLocalize("seaborn", "fishersfantasy", "name"));
+        setDescription(Localizer.dLocalize("seaborn.fishers_fantasy.description"));
+        setDisplayName(Localizer.dLocalize("seaborn.fishers_fantasy.name"));
         setIcon(Material.FISHING_ROD);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(8080);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.FISHING_ROD)
+                .key("challenge_seaborne_fish_500")
+                .title(Localizer.dLocalize("advancement.challenge_seaborne_fish_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_seaborne_fish_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.TROPICAL_FISH)
+                        .key("challenge_seaborne_fish_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_seaborne_fish_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_seaborne_fish_5k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_seaborne_fish_500", "seaborne.fishers-fantasy.fish-caught", 500, 300);
+        registerMilestone("challenge_seaborne_fish_5k", "seaborne.fishers-fantasy.fish-caught", 5000, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("seaborn", "fishersfantasy", "lore1"));
+        v.addLore(C.GRAY + Localizer.dLocalize("seaborn.fishers_fantasy.lore1"));
     }
 
     @EventHandler
@@ -64,14 +87,16 @@ public class SeaborneFishersFantasy extends SimpleAdaptation<SeaborneFishersFant
             return;
         }
         if (e.getState() == PlayerFishEvent.State.CAUGHT_FISH) {
-            Random random = new Random();
-            for (int i = 0; i < getLevel(p); i++) {
+            getPlayer(p).getData().addStat("seaborne.fishers-fantasy.fish-caught", 1);
+            int level = getLevel(p);
+            ThreadLocalRandom random = ThreadLocalRandom.current();
+            for (int i = 0; i < level; i++) {
                 ItemStack item = new ItemStack(ItemListings.getFishingDrops().getRandom(), 1);
                 if (random.nextBoolean()) {
                     p.getWorld().dropItemNaturally(p.getLocation(), item);
                     p.getWorld().spawn(p.getLocation(), ExperienceOrb.class);
                     Adapt.verbose("Fishing Gift Donated!");
-                    xp(p, 15 * getLevel(p));
+                    xp(p, 15 * level);
                 }
             }
         }
@@ -93,12 +118,19 @@ public class SeaborneFishersFantasy extends SimpleAdaptation<SeaborneFishersFant
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Earn more XP from fishing and catch more fish.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
-        double costFactor = 1.525;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.9;
     }
 }

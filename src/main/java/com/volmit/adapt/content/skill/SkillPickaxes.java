@@ -18,7 +18,7 @@
 
 package com.volmit.adapt.content.skill;
 
-import com.fren_gor.ultimateAdvancementAPI.advancement.display.AdvancementFrameType;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
 import com.volmit.adapt.api.advancement.AdaptAdvancement;
 import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.skill.SimpleSkill;
@@ -27,9 +27,9 @@ import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.adaptation.pickaxe.*;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.CustomModel;
-import com.volmit.adapt.util.J;
 import com.volmit.adapt.util.Localizer;
 import lombok.NoArgsConstructor;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -47,10 +47,10 @@ public class SkillPickaxes extends SimpleSkill<SkillPickaxes.Config> {
     private final Map<Player, Long> cooldowns;
 
     public SkillPickaxes() {
-        super("pickaxe", Localizer.dLocalize("skill", "pickaxe", "icon"));
+        super("pickaxe", Localizer.dLocalize("skill.pickaxe.icon"));
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("skill", "pickaxe", "description"));
-        setDisplayName(Localizer.dLocalize("skill", "pickaxe", "name"));
+        setDescription(Localizer.dLocalize("skill.pickaxe.description"));
+        setDisplayName(Localizer.dLocalize("skill.pickaxe.name"));
         setColor(C.GOLD);
         setInterval(2750);
         setIcon(Material.NETHERITE_PICKAXE);
@@ -60,45 +60,46 @@ public class SkillPickaxes extends SimpleSkill<SkillPickaxes.Config> {
         registerAdaptation(new PickaxeAutosmelt());
         registerAdaptation(new PickaxeDropToInventory());
         registerAdaptation(new PickaxeSilkSpawner());
+        registerAdaptation(new PickaxeQuarrySense());
         registerAdvancement(AdaptAdvancement.builder()
                 .icon(Material.WOODEN_PICKAXE)
                 .key("challenge_pickaxe_1k")
-                .title(Localizer.dLocalize("advancement", "challenge_pickaxe_1k", "title"))
-                .description(Localizer.dLocalize("advancement", "challenge_pickaxe_1k", "description"))
+                .title(Localizer.dLocalize("advancement.challenge_pickaxe_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_pickaxe_1k.description"))
                 .model(CustomModel.get(Material.WOODEN_PICKAXE, "advancement", "pickaxe", "challenge_pickaxe_1k"))
-                .frame(AdvancementFrameType.CHALLENGE)
+                .frame(AdaptAdvancementFrame.CHALLENGE)
                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                 .child(AdaptAdvancement.builder()
                         .icon(Material.STONE_PICKAXE)
                         .key("challenge_pickaxe_5k")
-                        .title(Localizer.dLocalize("advancement", "challenge_pickaxe_5k", "title"))
-                        .description(Localizer.dLocalize("advancement", "challenge_pickaxe_5k", "description"))
+                        .title(Localizer.dLocalize("advancement.challenge_pickaxe_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_pickaxe_5k.description"))
                         .model(CustomModel.get(Material.STONE_PICKAXE, "advancement", "pickaxe", "challenge_pickaxe_5k"))
-                        .frame(AdvancementFrameType.CHALLENGE)
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
                         .visibility(AdvancementVisibility.PARENT_GRANTED)
                         .child(AdaptAdvancement.builder()
                                 .icon(Material.IRON_PICKAXE)
                                 .key("challenge_pickaxe_50k")
-                                .title(Localizer.dLocalize("advancement", "challenge_pickaxe_50k", "title"))
-                                .description(Localizer.dLocalize("advancement", "challenge_pickaxe_50k", "description"))
+                                .title(Localizer.dLocalize("advancement.challenge_pickaxe_50k.title"))
+                                .description(Localizer.dLocalize("advancement.challenge_pickaxe_50k.description"))
                                 .model(CustomModel.get(Material.IRON_PICKAXE, "advancement", "pickaxe", "challenge_pickaxe_50k"))
-                                .frame(AdvancementFrameType.CHALLENGE)
+                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                                 .child(AdaptAdvancement.builder()
                                         .icon(Material.DIAMOND_PICKAXE)
                                         .key("challenge_pickaxe_500k")
-                                        .title(Localizer.dLocalize("advancement", "challenge_pickaxe_500k", "title"))
-                                        .description(Localizer.dLocalize("advancement", "challenge_pickaxe_500k", "description"))
+                                        .title(Localizer.dLocalize("advancement.challenge_pickaxe_500k.title"))
+                                        .description(Localizer.dLocalize("advancement.challenge_pickaxe_500k.description"))
                                         .model(CustomModel.get(Material.DIAMOND_PICKAXE, "advancement", "pickaxe", "challenge_pickaxe_500k"))
-                                        .frame(AdvancementFrameType.CHALLENGE)
+                                        .frame(AdaptAdvancementFrame.CHALLENGE)
                                         .visibility(AdvancementVisibility.PARENT_GRANTED)
                                         .child(AdaptAdvancement.builder()
                                                 .icon(Material.NETHERITE_PICKAXE)
                                                 .key("challenge_pickaxe_5m")
-                                                .title(Localizer.dLocalize("advancement", "challenge_pickaxe_5m", "title"))
-                                                .description(Localizer.dLocalize("advancement", "challenge_pickaxe_5m", "description"))
+                                                .title(Localizer.dLocalize("advancement.challenge_pickaxe_5m.title"))
+                                                .description(Localizer.dLocalize("advancement.challenge_pickaxe_5m.description"))
                                                 .model(CustomModel.get(Material.NETHERITE_PICKAXE, "advancement", "pickaxe", "challenge_pickaxe_5m"))
-                                                .frame(AdvancementFrameType.CHALLENGE)
+                                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                                                 .build())
                                         .build())
@@ -106,12 +107,92 @@ public class SkillPickaxes extends SimpleSkill<SkillPickaxes.Config> {
                         .build())
                 .build());
 
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_pickaxe_1k").goal(100).stat("pickaxe.blocks.broken").reward(getConfig().emeraldBonus*2).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_pickaxe_5k").goal(500).stat("pickaxe.blocks.broken").reward(getConfig().emeraldBonus*5).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_pickaxe_50k").goal(5000).stat("pickaxe.blocks.broken").reward(getConfig().emeraldBonus*10).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_pickaxe_500k").goal(50000).stat("pickaxe.blocks.broken").reward(getConfig().emeraldBonus*10).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_pickaxe_5m").goal(500000).stat("pickaxe.blocks.broken").reward(getConfig().emeraldBonus*50).build());
-        
+        registerMilestone("challenge_pickaxe_1k", "pickaxe.blocks.broken", 100, getConfig().emeraldBonus*2);
+        registerMilestone("challenge_pickaxe_5k", "pickaxe.blocks.broken", 500, getConfig().emeraldBonus*5);
+        registerMilestone("challenge_pickaxe_50k", "pickaxe.blocks.broken", 5000, getConfig().emeraldBonus*10);
+        registerMilestone("challenge_pickaxe_500k", "pickaxe.blocks.broken", 50000, getConfig().emeraldBonus*10);
+        registerMilestone("challenge_pickaxe_5m", "pickaxe.blocks.broken", 500000, getConfig().emeraldBonus*50);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WOODEN_PICKAXE).key("challenge_pick_swing_500")
+                .title(Localizer.dLocalize("advancement.challenge_pick_swing_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_pick_swing_500.description"))
+                .model(CustomModel.get(Material.WOODEN_PICKAXE, "advancement", "pickaxe", "challenge_pick_swing_500"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.IRON_PICKAXE)
+                        .key("challenge_pick_swing_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_pick_swing_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_pick_swing_5k.description"))
+                        .model(CustomModel.get(Material.IRON_PICKAXE, "advancement", "pickaxe", "challenge_pick_swing_5k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_pick_swing_500", "pickaxe.swings", 500, getConfig().emeraldBonus);
+        registerMilestone("challenge_pick_swing_5k", "pickaxe.swings", 5000, getConfig().emeraldBonus * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.GOLDEN_PICKAXE).key("challenge_pick_damage_1k")
+                .title(Localizer.dLocalize("advancement.challenge_pick_damage_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_pick_damage_1k.description"))
+                .model(CustomModel.get(Material.GOLDEN_PICKAXE, "advancement", "pickaxe", "challenge_pick_damage_1k"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_PICKAXE)
+                        .key("challenge_pick_damage_10k")
+                        .title(Localizer.dLocalize("advancement.challenge_pick_damage_10k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_pick_damage_10k.description"))
+                        .model(CustomModel.get(Material.DIAMOND_PICKAXE, "advancement", "pickaxe", "challenge_pick_damage_10k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_pick_damage_1k", "pickaxe.damage", 1000, getConfig().emeraldBonus);
+        registerMilestone("challenge_pick_damage_10k", "pickaxe.damage", 10000, getConfig().emeraldBonus * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.RAW_IRON).key("challenge_pick_value_5k")
+                .title(Localizer.dLocalize("advancement.challenge_pick_value_5k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_pick_value_5k.description"))
+                .model(CustomModel.get(Material.RAW_IRON, "advancement", "pickaxe", "challenge_pick_value_5k"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.RAW_GOLD)
+                        .key("challenge_pick_value_50k")
+                        .title(Localizer.dLocalize("advancement.challenge_pick_value_50k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_pick_value_50k.description"))
+                        .model(CustomModel.get(Material.RAW_GOLD, "advancement", "pickaxe", "challenge_pick_value_50k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_pick_value_5k", "pickaxe.blocks.value", 5000, getConfig().emeraldBonus);
+        registerMilestone("challenge_pick_value_50k", "pickaxe.blocks.value", 50000, getConfig().emeraldBonus * 2);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_ORE).key("challenge_pick_ores_500")
+                .title(Localizer.dLocalize("advancement.challenge_pick_ores_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_pick_ores_500.description"))
+                .model(CustomModel.get(Material.IRON_ORE, "advancement", "pickaxe", "challenge_pick_ores_500"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_ORE)
+                        .key("challenge_pick_ores_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_pick_ores_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_pick_ores_5k.description"))
+                        .model(CustomModel.get(Material.DIAMOND_ORE, "advancement", "pickaxe", "challenge_pick_ores_5k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_pick_ores_500", "pickaxe.ores", 500, getConfig().emeraldBonus);
+        registerMilestone("challenge_pick_ores_5k", "pickaxe.ores", 5000, getConfig().emeraldBonus * 2);
+
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -153,13 +234,16 @@ public class SkillPickaxes extends SimpleSkill<SkillPickaxes.Config> {
 
                 adaptPlayer.getData().addStat("pickaxe.blocks.broken", 1);
                 adaptPlayer.getData().addStat("pickaxe.blocks.value", blockValue);
+                if (blockType.name().contains("_ORE")) {
+                    adaptPlayer.getData().addStat("pickaxe.ores", 1);
+                }
 
                 handleCooldown(p, () -> {
                     if (mainHand.getEnchantments().containsKey(Enchantment.SILK_TOUCH)) {
                         xp(p, 5);
                     } else {
                         Location blockLocation = e.getBlock().getLocation().clone().add(0.5, 0.5, 0.5);
-                        J.a(() -> xp(p, blockLocation, blockXP(e.getBlock(), blockValue)));
+                        xp(p, blockLocation, blockXP(e.getBlock(), blockValue));
                     }
                 });
             }
@@ -209,7 +293,7 @@ public class SkillPickaxes extends SimpleSkill<SkillPickaxes.Config> {
 
     @Override
     public void onTick() {
-
+        checkStatTrackersForOnlinePlayers();
     }
 
     @Override
@@ -219,24 +303,43 @@ public class SkillPickaxes extends SimpleSkill<SkillPickaxes.Config> {
 
     @NoArgsConstructor
     protected static class Config {
-        public double debrisBonus = 300;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Debris Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        public double debrisBonus = 210;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Get Xp For Attacking With Tools for the Pickaxes skill.", impact = "True enables this behavior and false disables it.")
         boolean getXpForAttackingWithTools = true;
-        double damageXPMultiplier = 13.26;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage XPMultiplier for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double damageXPMultiplier = 6.0;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Block Value Multiplier for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double blockValueMultiplier = 0.125;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Hardness Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double maxHardnessBonus = 9;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Blast Resistance Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double maxBlastResistanceBonus = 10;
-        double coalBonus = 25;
-        double ironBonus = 40;
-        double redstoneBonus = 75;
-        double copperBonus = 30;
-        double goldBonus = 50;
-        double lapisBonus = 105;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Coal Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double coalBonus = 18;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Iron Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double ironBonus = 30;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Redstone Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double redstoneBonus = 55;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Copper Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double copperBonus = 22;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Gold Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double goldBonus = 38;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Lapis Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double lapisBonus = 75;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Delay for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         long cooldownDelay = 1250;
-        double diamondBonus = 250;
-        double emeraldBonus = 300;
-        double netherGoldBonus = 150;
-        double netherQuartzBonus = 175;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Diamond Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double diamondBonus = 175;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Emerald Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double emeraldBonus = 210;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Nether Gold Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double netherGoldBonus = 105;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Nether Quartz Bonus for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double netherQuartzBonus = 125;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Deepslate Multiplier for the Pickaxes skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double deepslateMultiplier = 1.35;
     }
 }

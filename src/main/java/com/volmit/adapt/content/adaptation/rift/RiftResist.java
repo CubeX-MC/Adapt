@@ -19,12 +19,17 @@
 package com.volmit.adapt.content.adaptation.rift;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.world.AdaptPlayer;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
 import com.volmit.adapt.util.SoundPlayer;
-import com.volmit.adapt.util.reflect.enums.PotionEffectTypes;
+import com.volmit.adapt.util.config.ConfigDescription;
+import com.volmit.adapt.util.reflect.registries.PotionEffectTypes;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -41,14 +46,23 @@ public class RiftResist extends SimpleAdaptation<RiftResist.Config> {
     public RiftResist() {
         super("rift-resist");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("rift", "resist", "description"));
-        setDisplayName(Localizer.dLocalize("rift", "resist", "name"));
+        setDescription(Localizer.dLocalize("rift.resist.description"));
+        setDisplayName(Localizer.dLocalize("rift.resist.name"));
         setIcon(Material.SCULK_VEIN);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setInterval(10288);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ENDER_PEARL)
+                .key("challenge_rift_resist_200")
+                .title(Localizer.dLocalize("advancement.challenge_rift_resist_200.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_resist_200.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_rift_resist_200", "rift.resist.activations", 200, 300);
     }
 
     static void riftResistStackAdd(Player p, int duration, int amplifier) {
@@ -68,8 +82,8 @@ public class RiftResist extends SimpleAdaptation<RiftResist.Config> {
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.ITALIC + Localizer.dLocalize("rift", "resist", "lore1"));
-        v.addLore(C.UNDERLINE + Localizer.dLocalize("rift", "resist", "lore2"));
+        v.addLore(C.ITALIC + Localizer.dLocalize("rift.resist.lore1"));
+        v.addLore(C.UNDERLINE + Localizer.dLocalize("rift.resist.lore2"));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -85,6 +99,7 @@ public class RiftResist extends SimpleAdaptation<RiftResist.Config> {
                 case ENDER_EYE, ENDER_PEARL -> {
                     xp(p, 3);
                     riftResistStackAdd(p, getConfig().duration, getConfig().amplitude);
+                    getPlayer(p).getData().addStat("rift.resist.activations", 1);
                 }
             }
         }
@@ -107,14 +122,23 @@ public class RiftResist extends SimpleAdaptation<RiftResist.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Gain resistance when using Ender items and abilities.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Amplitude for the Rift Resist adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int amplitude = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Duration for the Rift Resist adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int duration = 80;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 5;
     }
 }

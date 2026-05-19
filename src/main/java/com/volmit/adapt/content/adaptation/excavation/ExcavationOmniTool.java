@@ -20,9 +20,14 @@ package com.volmit.adapt.content.adaptation.excavation;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.ItemListings;
 import com.volmit.adapt.content.item.multiItems.OmniTool;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -54,25 +59,43 @@ public class ExcavationOmniTool extends SimpleAdaptation<ExcavationOmniTool.Conf
     public ExcavationOmniTool() {
         super("excavation-omnitool");
         registerConfiguration(ExcavationOmniTool.Config.class);
-        setDisplayName(Localizer.dLocalize("excavation", "omnitool", "name"));
-        setDescription(Localizer.dLocalize("excavation", "omnitool", "description"));
+        setDisplayName(Localizer.dLocalize("excavation.omni_tool.name"));
+        setDescription(Localizer.dLocalize("excavation.omni_tool.description"));
         setIcon(Material.DISC_FRAGMENT_5);
         setInterval(20202);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_PICKAXE)
+                .key("challenge_excavation_omni_1k")
+                .title(Localizer.dLocalize("advancement.challenge_excavation_omni_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_excavation_omni_1k.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.NETHERITE_PICKAXE)
+                        .key("challenge_excavation_omni_25k")
+                        .title(Localizer.dLocalize("advancement.challenge_excavation_omni_25k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_excavation_omni_25k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_excavation_omni_1k", "excavation.omni-tool.auto-swaps", 1000, 400);
+        registerMilestone("challenge_excavation_omni_25k", "excavation.omni-tool.auto-swaps", 25000, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("excavation", "omnitool", "lore1"));
-        v.addLore(C.GRAY + Localizer.dLocalize("excavation", "omnitool", "lore2"));
-        v.addLore(C.GREEN + Localizer.dLocalize("excavation", "omnitool", "lore3"));
-        v.addLore(C.RED + Localizer.dLocalize("excavation", "omnitool", "lore4"));
-        v.addLore(C.GRAY + Localizer.dLocalize("excavation", "omnitool", "lore5"));
-        v.addLore(C.GREEN + "" + (level + getConfig().startingSlots) + C.GRAY + " " + Localizer.dLocalize("excavation", "omnitool", "lore6"));
-        v.addLore(C.UNDERLINE + Localizer.dLocalize("excavation", "omnitool", "lore7"));
+        v.addLore(C.GRAY + Localizer.dLocalize("excavation.omni_tool.lore1"));
+        v.addLore(C.GRAY + Localizer.dLocalize("excavation.omni_tool.lore2"));
+        v.addLore(C.GREEN + Localizer.dLocalize("excavation.omni_tool.lore3"));
+        v.addLore(C.RED + Localizer.dLocalize("excavation.omni_tool.lore4"));
+        v.addLore(C.GRAY + Localizer.dLocalize("excavation.omni_tool.lore5"));
+        v.addLore(C.GREEN + "" + (level + getConfig().startingSlots) + C.GRAY + " " + Localizer.dLocalize("excavation.omni_tool.lore6"));
+        v.addLore(C.UNDERLINE + Localizer.dLocalize("excavation.omni_tool.lore7"));
 
 
     }
@@ -323,6 +346,7 @@ public class ExcavationOmniTool extends SimpleAdaptation<ExcavationOmniTool.Conf
 
     private void itemDelegate(BlockDamageEvent e, ItemStack hand, Damageable imHand) {
         Player p = e.getPlayer();
+        getPlayer(p).getData().addStat("excavation.omni-tool.auto-swaps", 1);
         SoundPlayer sp = SoundPlayer.of(p);
         SoundPlayer spw = SoundPlayer.of(p.getWorld());
         spw.play(p.getLocation(), Sound.ITEM_ARMOR_EQUIP_ELYTRA, 1f, 0.77f);
@@ -350,13 +374,21 @@ public class ExcavationOmniTool extends SimpleAdaptation<ExcavationOmniTool.Conf
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Dynamically merge and swap tools on the fly based on what you are mining.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 10;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.20;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Starting Slots for the Excavation Omni Tool adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int startingSlots = 1;
     }
 }

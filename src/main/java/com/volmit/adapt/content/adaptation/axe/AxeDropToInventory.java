@@ -19,11 +19,17 @@
 package com.volmit.adapt.content.adaptation.axe;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.ItemListings;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
 import com.volmit.adapt.util.SoundPlayer;
+import com.volmit.adapt.util.collection.KList;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -40,15 +46,23 @@ public class AxeDropToInventory extends SimpleAdaptation<AxeDropToInventory.Conf
     public AxeDropToInventory() {
         super("axe-drop-to-inventory");
         registerConfiguration(AxeDropToInventory.Config.class);
-        setDescription(Localizer.dLocalize("pickaxe", "droptoinventory", "description"));
-        setDisplayName(Localizer.dLocalize("axe", "droptoinventory", "name"));
-        setIcon(Material.DIRT);
+        setDescription(Localizer.dLocalize("pickaxe.drop_to_inventory.description"));
+        setDisplayName(Localizer.dLocalize("axe.drop_to_inventory.name"));
+        setIcon(Material.BARREL);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         setInterval(8800);
-
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.CHEST)
+                .key("challenge_axe_dti_5k")
+                .title(Localizer.dLocalize("advancement.challenge_axe_dti_5k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_axe_dti_5k.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_axe_dti_5k", "axe.drop-to-inv.items-caught", 5000, 500);
     }
 
     @Override
@@ -57,7 +71,7 @@ public class AxeDropToInventory extends SimpleAdaptation<AxeDropToInventory.Conf
     }
 
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("pickaxe", "droptoinventory", "lore1"));
+        v.addLore(C.GRAY + Localizer.dLocalize("pickaxe.drop_to_inventory.lore1"));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -77,13 +91,18 @@ public class AxeDropToInventory extends SimpleAdaptation<AxeDropToInventory.Conf
             return;
         }
         if (ItemListings.toolAxes.contains(p.getInventory().getItemInMainHand().getType())) {
-            List<Item> items = e.getItems().copy();
+            List<Item> items = new KList<>(e.getItems());
             e.getItems().clear();
+            int caught = 0;
             for (Item i : items) {
                 sp.play(p.getLocation(), Sound.BLOCK_CALCITE_HIT, 0.05f, 0.01f);
                 if (!p.getInventory().addItem(i.getItemStack()).isEmpty()) {
                     p.getWorld().dropItem(p.getLocation(), i.getItemStack());
                 }
+                caught++;
+            }
+            if (caught > 0) {
+                getPlayer(p).getData().addStat("axe.drop-to-inv.items-caught", caught);
             }
         }
     }
@@ -99,12 +118,19 @@ public class AxeDropToInventory extends SimpleAdaptation<AxeDropToInventory.Conf
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Chopped wood drops directly into your inventory.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

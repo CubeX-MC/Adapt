@@ -18,7 +18,6 @@
 
 package com.volmit.adapt;
 
-import art.arcane.amulet.io.FolderWatcher;
 import com.jeff_media.customblockdata.CustomBlockData;
 import com.volmit.adapt.api.advancement.AdvancementManager;
 import com.volmit.adapt.api.data.WorldData;
@@ -28,40 +27,47 @@ import com.volmit.adapt.api.tick.Ticker;
 import com.volmit.adapt.api.value.MaterialValue;
 import com.volmit.adapt.api.version.Version;
 import com.volmit.adapt.api.world.AdaptServer;
+import com.volmit.adapt.api.world.PlayerDataPersistenceQueue;
+import com.volmit.adapt.api.adaptation.Adaptation;
+import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.skill.SimpleSkill;
+import com.volmit.adapt.api.skill.Skill;
 import com.volmit.adapt.content.gui.SkillsGui;
 import com.volmit.adapt.content.protector.*;
-import com.volmit.adapt.util.redis.RedisSync;
-import fr.skytasul.glowingentities.GlowingEntities;
 import com.volmit.adapt.util.*;
 import com.volmit.adapt.util.collection.KList;
 import com.volmit.adapt.util.collection.KMap;
+import com.volmit.adapt.util.config.ConfigMigrationManager;
+import com.volmit.adapt.util.redis.RedisSync;
 import com.volmit.adapt.util.secret.SecretSplash;
+import de.crazydev22.platformutils.AudienceProvider;
+import de.crazydev22.platformutils.Platform;
+import de.crazydev22.platformutils.PlatformUtils;
 import de.slikey.effectlib.EffectManager;
+import fr.skytasul.glowingentities.GlowingEntities;
+import io.github.slimjar.app.builder.SpigotApplicationBuilder;
 import lombok.Getter;
 import lombok.SneakyThrows;
-import net.kyori.adventure.platform.bukkit.BukkitAudiences;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.lang.annotation.Annotation;
 import java.net.URL;
 import java.text.MessageFormat;
 import java.util.*;
+import java.util.function.Supplier;
 
 import static com.volmit.adapt.util.decree.context.AdaptationListingHandler.initializeAdaptationListings;
 
 public class Adapt extends VolmitPlugin {
     public static Adapt instance;
     public static HashMap<String, String> wordKey = new HashMap<>();
-    public final EffectManager adaptEffectManager = new EffectManager(this);
-    public static BukkitAudiences audiences;
+    public final EffectManager adaptEffectManager;
+    public static Platform platform;
+    public static AudienceProvider audiences;
     private KMap<Class<? extends AdaptService>, AdaptService> services;
 
     @Getter
@@ -70,8 +76,6 @@ public class Adapt extends VolmitPlugin {
     private Ticker ticker;
     @Getter
     private AdaptServer adaptServer;
-    @Getter
-    private FolderWatcher configWatcher;
     @Getter
     private SQLManager sqlManager;
     @Getter
@@ -83,15 +87,23 @@ public class Adapt extends VolmitPlugin {
     private AdvancementManager manager;
     @Getter
     private RedisSync redisSync;
+    @Getter
+    private PlayerDataPersistenceQueue playerDataPersistenceQueue;
 
 
     private final KList<Runnable> postShutdown = new KList<>();
     private static VolmitSender sender;
+    private static final long STARTUP_SLOW_PHASE_MS = 1500L;
 
 
     public Adapt() {
-        super();
         instance = this;
+        getLogger().info("Loading Libraries...");
+        new SpigotApplicationBuilder(this)
+                .remap(true)
+                .build();
+        getLogger().info("Libraries Loaded!");
+        adaptEffectManager = new EffectManager(this);
     }
 
     @SuppressWarnings("unchecked")
@@ -102,25 +114,48 @@ public class Adapt extends VolmitPlugin {
     @Override
     public void onLoad() {
         manager = new AdvancementManager();
+        if (getServer().getPluginManager().getPlugin("WorldGuard") != null) {
+            WorldGuardProtector.registerFlag();
+        }
     }
 
     @Override
     public void start() {
-        audiences = BukkitAudiences.create(this);
+        runStartupPhaseVoid("backup-legacy-configs", ConfigMigrationManager::backupLegacyJsonConfigsOnce);
+        platform = PlatformUtils.createPlatform(this);
+        audiences = platform.getAudienceProvider();
         services = new KMap<>();
-        initialize("com.volmit.adapt.service").forEach((i) -> services.put((Class<? extends AdaptService>) i.getClass(), (AdaptService) i));
+        runStartupPhaseVoid("discover-services", () -> initialize("com.volmit.adapt.service")
+                .forEach((i) -> services.put((Class<? extends AdaptService>) i.getClass(), (AdaptService) i)));
 
-        Localizer.updateLanguageFile();
+        runStartupPhaseVoid("language-update", Localizer::updateLanguageFile);
+        if (!runStartupPhase("models-load", CustomModel::reloadFromDisk)) {
+            Adapt.warn("Failed to load models config during startup migration.");
+        }
+        if (!AdaptConfig.get().isCustomModels()) {
+            CustomModel.clear();
+        }
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new PapiExpansion().register();
         }
         printInformation();
         sqlManager = new SQLManager();
         if (AdaptConfig.get().isUseSql()) {
-            sqlManager.establishConnection();
+            runStartupPhase("sql-connect", () -> {
+                sqlManager.establishConnection();
+                return null;
+            });
         }
         redisSync = new RedisSync();
-        startSim();
+        playerDataPersistenceQueue = new PlayerDataPersistenceQueue();
+        runStartupPhase("start-sim", () -> {
+            startSim();
+            return null;
+        });
+        runStartupPhase("config-canonicalization", () -> {
+            migrateAllSkillAndAdaptationConfigs();
+            return null;
+        });
         CustomBlockData.registerListener(this);
         registerListener(new BrewingManager());
         registerListener(Version.get());
@@ -157,11 +192,83 @@ public class Adapt extends VolmitPlugin {
         services.values().forEach(this::registerListener);
     }
 
+    private static void runStartupPhaseVoid(String phase, Runnable action) {
+        runStartupPhase(phase, () -> {
+            action.run();
+            return null;
+        });
+    }
+
+    private static <T> T runStartupPhase(String phase, Supplier<T> action) {
+        if (phase == null || phase.isBlank()) {
+            return action.get();
+        }
+
+        info("Startup phase: " + phase);
+        long start = System.currentTimeMillis();
+        try {
+            return action.get();
+        } finally {
+            long elapsed = System.currentTimeMillis() - start;
+            if (elapsed >= STARTUP_SLOW_PHASE_MS) {
+                warn("Startup phase '" + phase + "' took " + elapsed + "ms.");
+            } else {
+                verbose("Startup phase '" + phase + "' took " + elapsed + "ms.");
+            }
+        }
+    }
+
+    private void migrateAllSkillAndAdaptationConfigs() {
+        if (adaptServer == null || adaptServer.getSkillRegistry() == null) {
+            return;
+        }
+
+        if (!ConfigMigrationManager.hasLegacySkillOrAdaptationJsonFiles()) {
+            int deletedLegacyJson = ConfigMigrationManager.deleteMigratedLegacyJsonFiles();
+            Adapt.info("Skipped skill/adaptation canonicalization (legacy json not found). deletedLegacyJson=" + deletedLegacyJson + ".");
+            return;
+        }
+
+        int migratedSkills = 0;
+        int migratedAdaptations = 0;
+        for (Skill<?> skill : adaptServer.getSkillRegistry().getSkills()) {
+            if (skill instanceof SimpleSkill<?> simpleSkill) {
+                if (simpleSkill.reloadConfigFromDisk(false)) {
+                    migratedSkills++;
+                }
+            }
+
+            for (Adaptation<?> adaptation : skill.getAdaptations()) {
+                if (adaptation instanceof SimpleAdaptation<?> simpleAdaptation) {
+                    if (simpleAdaptation.reloadConfigFromDisk(false)) {
+                        migratedAdaptations++;
+                    }
+                }
+            }
+        }
+
+        int deletedLegacyJson = ConfigMigrationManager.deleteMigratedLegacyJsonFiles();
+        Adapt.info("Canonicalized skill/adaptation configs to TOML (skills=" + migratedSkills + ", adaptations=" + migratedAdaptations + ", deletedLegacyJson=" + deletedLegacyJson + ").");
+    }
+
 
     public void startSim() {
+        long startTicker = System.currentTimeMillis();
         ticker = new Ticker();
+        verbose("start-sim detail: ticker init in " + (System.currentTimeMillis() - startTicker) + "ms");
+
+        long startServer = System.currentTimeMillis();
         adaptServer = new AdaptServer();
+        long serverMs = System.currentTimeMillis() - startServer;
+        if (serverMs >= STARTUP_SLOW_PHASE_MS) {
+            warn("start-sim detail: AdaptServer init took " + serverMs + "ms.");
+        } else {
+            verbose("start-sim detail: AdaptServer init in " + serverMs + "ms");
+        }
+
+        long startAdv = System.currentTimeMillis();
         manager.enable();
+        verbose("start-sim detail: advancement manager enable in " + (System.currentTimeMillis() - startAdv) + "ms");
     }
 
     public void postShutdown(Runnable r) {
@@ -169,10 +276,16 @@ public class Adapt extends VolmitPlugin {
     }
 
     public void stopSim() {
-        ticker.clear();
+        if (ticker != null) {
+            ticker.clear();
+        }
         postShutdown.forEach(Runnable::run);
-        adaptServer.unregister();
-        manager.disable();
+        if (adaptServer != null) {
+            adaptServer.unregister();
+        }
+        if (manager != null) {
+            manager.disable();
+        }
         MaterialValue.save();
         WorldData.stop();
         CustomModel.clear();
@@ -181,12 +294,35 @@ public class Adapt extends VolmitPlugin {
 
     @Override
     public void stop() {
-        services.values().forEach(AdaptService::onDisable);
-        sqlManager.closeConnection();
+        if (services != null) {
+            services.values().forEach(AdaptService::onDisable);
+        }
         stopSim();
-        glowingEntities.disable();
-        protectorRegistry.unregisterAll();
-        services.clear();
+        if (playerDataPersistenceQueue != null) {
+            playerDataPersistenceQueue.flushAndShutdown(30_000L);
+            playerDataPersistenceQueue = null;
+        }
+        if (redisSync != null) {
+            try {
+                redisSync.close();
+            } catch (Exception e) {
+                Adapt.verbose("Failed to close redis sync: " + e.getMessage());
+            } finally {
+                redisSync = null;
+            }
+        }
+        if (sqlManager != null) {
+            sqlManager.closeConnection();
+        }
+        if (glowingEntities != null) {
+            glowingEntities.disable();
+        }
+        if (protectorRegistry != null) {
+            protectorRegistry.unregisterAll();
+        }
+        if (services != null) {
+            services.clear();
+        }
     }
 
     private void startupPrint() {
@@ -218,7 +354,7 @@ public class Adapt extends VolmitPlugin {
 
     private void setupMetrics() {
         if (AdaptConfig.get().isMetrics()) {
-            new Metrics(this, 13412);
+            new Metrics(this, 24221);
         }
     }
 
@@ -235,15 +371,21 @@ public class Adapt extends VolmitPlugin {
     }
 
     public static KList<Object> initialize(String s, Class<? extends Annotation> slicedClass) {
-        JarScanner js = new JarScanner(instance.jar(), s);
+        JarScanner js = new JarScanner(instance.getFile(), s);
         KList<Object> v = new KList<>();
         J.attempt(js::scan);
         for (Class<?> i : js.getClasses()) {
             if (slicedClass == null || i.isAnnotationPresent(slicedClass)) {
                 try {
+                    Adapt.verbose("Found class: " + i.getName());
                     v.add(i.getDeclaredConstructor().newInstance());
-                } catch (Throwable ignored) {
-
+                } catch (Throwable e) {
+                    Adapt.verbose("Failed to load class: " + i.getName());
+                    StringWriter writer = new StringWriter();
+                    e.printStackTrace(new PrintWriter(writer));
+                    for (String line : writer.toString().split("\n")) {
+                        verbose(line);
+                    }
                 }
             }
         }
@@ -273,7 +415,7 @@ public class Adapt extends VolmitPlugin {
 
     @SneakyThrows
     public static void autoUpdateCheck() {
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(new URL("https://raw.githubusercontent.com/VolmitSoftware/Adapt/main/build.gradle").openStream()))) {
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(new URL("https://raw.githubusercontent.com/VolmitSoftware/Adapt/main/build.gradle.kts").openStream()))) {
             info("Checking for updates...");
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
@@ -296,7 +438,7 @@ public class Adapt extends VolmitPlugin {
     }
 
     public static void actionbar(Player p, String msg) {
-        p.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(msg));
+        new VolmitSender(p).sendAction(msg);
     }
 
     public static void debug(String string) {
@@ -346,41 +488,4 @@ public class Adapt extends VolmitPlugin {
         }
     }
 
-    public static void hotloaded() {
-        J.s(() -> {
-            instance.guiLeftovers.values().forEach(window -> {
-                HandlerList.unregisterAll((Listener) window);
-                window.close();
-            });
-            instance.stop();
-            instance.start();
-
-            instance.getGuiLeftovers().forEach((s, window) -> {
-
-                if (window.getTag() != null) {
-                    if (window.getTag().equals("/")) {
-                        SkillsGui.open(Bukkit.getPlayer(UUID.fromString(s)));
-                    } else {
-                        String[] split = window.getTag().split("\\Q/\\E");
-                        if (split.length == 2) {
-                            if (split[0].equals("skill")) {
-                                instance.getAdaptServer().getSkillRegistry().getSkill(split[1]).openGui(Bukkit.getPlayer(UUID.fromString(s)));
-                            }
-                        } else if (split.length == 3) {
-                            if (split[0].equals("skill")) {
-                                try {
-                                    instance.getAdaptServer().getSkillRegistry().getSkill(split[1]).getAdaptations().where(a -> a.getId().equals(split[2])).get(0).openGui(Bukkit.getPlayer(UUID.fromString(s)));
-
-                                } catch (Throwable e) {
-                                    instance.getAdaptServer().getSkillRegistry().getSkill(split[1]).openGui(Bukkit.getPlayer(UUID.fromString(s)));
-                                }
-                            }
-                        }
-                    }
-
-                }
-            });
-
-        }, 20);
-    }
 }

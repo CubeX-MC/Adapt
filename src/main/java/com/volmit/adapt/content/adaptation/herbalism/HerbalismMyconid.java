@@ -19,12 +19,21 @@
 package com.volmit.adapt.content.adaptation.herbalism;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 public class HerbalismMyconid extends SimpleAdaptation<HerbalismMyconid.Config> {
@@ -32,8 +41,8 @@ public class HerbalismMyconid extends SimpleAdaptation<HerbalismMyconid.Config> 
     public HerbalismMyconid() {
         super("herbalism-myconid");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("herbalism", "myconid", "description"));
-        setDisplayName(Localizer.dLocalize("herbalism", "myconid", "name"));
+        setDescription(Localizer.dLocalize("herbalism.myconid.description"));
+        setDisplayName(Localizer.dLocalize("herbalism.myconid.name"));
         setIcon(Material.MYCELIUM);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
@@ -47,14 +56,35 @@ public class HerbalismMyconid extends SimpleAdaptation<HerbalismMyconid.Config> 
                 .ingredient(Material.BROWN_MUSHROOM)
                 .result(new ItemStack(Material.MYCELIUM, 1))
                 .build());
-
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.MYCELIUM)
+                .key("challenge_herbalism_myconid_100")
+                .title(Localizer.dLocalize("advancement.challenge_herbalism_myconid_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_herbalism_myconid_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_herbalism_myconid_100", "herbalism.myconid.mycelium-crafted", 100, 300);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("herbalism", "myconid", "lore1"));
+        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("herbalism.myconid.lore1"));
     }
 
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void on(CraftItemEvent e) {
+        if (e.isCancelled()) {
+            return;
+        }
+        if (!(e.getWhoClicked() instanceof Player p) || !hasAdaptation(p)) {
+            return;
+        }
+        if (e.getRecipe() instanceof org.bukkit.inventory.ShapelessRecipe recipe && recipe.getKey().getNamespace().equals("adapt") && recipe.getKey().getKey().equals("herbalism-dirt-myconid")) {
+            getPlayer(p).getData().addStat("herbalism.myconid.mycelium-crafted", 1);
+        }
+    }
 
     @Override
     public void onTick() {
@@ -71,12 +101,19 @@ public class HerbalismMyconid extends SimpleAdaptation<HerbalismMyconid.Config> 
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Craft Mycelium from Dirt and Mushrooms.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.75;
     }
 }

@@ -28,7 +28,6 @@ import com.volmit.adapt.api.value.MaterialValue;
 import com.volmit.adapt.api.xp.XP;
 import com.volmit.adapt.util.J;
 import com.volmit.adapt.util.SoundPlayer;
-import com.volmit.adapt.util.reflect.enums.PotionTypes;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -42,7 +41,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -56,12 +54,36 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import static com.volmit.adapt.util.reflect.enums.Particles.ENCHANTMENT_TABLE;
-import static com.volmit.adapt.util.reflect.enums.Particles.REDSTONE;
-import static org.bukkit.potion.PotionType.*;
+import static com.volmit.adapt.util.reflect.registries.Particles.ENCHANTMENT_TABLE;
+import static com.volmit.adapt.util.reflect.registries.Particles.REDSTONE;
 import static xyz.xenondevs.particle.utils.MathUtils.RANDOM;
 
 public interface Component {
+    Set<EntityDamageEvent.DamageCause> NON_ADAPTABLE_DAMAGE_CAUSES = Set.of(
+            EntityDamageEvent.DamageCause.VOID,
+            EntityDamageEvent.DamageCause.LAVA,
+            EntityDamageEvent.DamageCause.HOT_FLOOR,
+            EntityDamageEvent.DamageCause.CRAMMING,
+            EntityDamageEvent.DamageCause.MELTING,
+            EntityDamageEvent.DamageCause.SUFFOCATION,
+            EntityDamageEvent.DamageCause.SUICIDE,
+            EntityDamageEvent.DamageCause.WITHER,
+            EntityDamageEvent.DamageCause.FLY_INTO_WALL,
+            EntityDamageEvent.DamageCause.FALL,
+            EntityDamageEvent.DamageCause.SONIC_BOOM,
+            EntityDamageEvent.DamageCause.THORNS
+    );
+
+    default boolean areParticlesEnabled() {
+        AdaptConfig.Effects effects = AdaptConfig.get().getEffects();
+        return effects == null || effects.isParticlesEnabled();
+    }
+
+    default boolean areSoundsEnabled() {
+        AdaptConfig.Effects effects = AdaptConfig.get().getEffects();
+        return effects == null || effects.isSoundsEnabled();
+    }
+
     default void wisdom(Player p, long w) {
         XP.wisdom(p, w);
     }
@@ -167,49 +189,8 @@ public interface Component {
         return armorValue;
     }
 
-    default PotionEffect getRawPotionEffect(ItemStack is) {
-        if (is != null && is.getItemMeta() != null && is.getItemMeta() instanceof PotionMeta p && p.getBasePotionData().getType().getEffectType() != null) {
-            boolean l = is.getType().equals(Material.LINGERING_POTION);
-            boolean x = p.getBasePotionData().isExtended();
-            boolean u = p.getBasePotionData().isUpgraded();
-            int e = x ? l ? 2400 : 9600 : l ? 900 : 3600;
-            int g = u ? l ? 440 : 1800 : e;
-            int t = x ? l ? 1200 : 4800 : l ? 440 : 1800;
-            int h = u ? l ? 100 : 420 : x ? l ? 440 : 1800 : l ? 220 : 900;
-
-            int amplifier = 0;
-            var type = p.getBasePotionData().getType();
-            if (List.of(NIGHT_VISION, INVISIBILITY, FIRE_RESISTANCE, WATER_BREATHING).contains(type)) amplifier = e;
-            else if (List.of(PotionTypes.JUMP, PotionTypes.SPEED, STRENGTH).contains(type)) amplifier = g;
-            else if (SLOWNESS == type) amplifier = u ? l ? 100 : 400 : t;
-            else if (List.of(POISON, PotionTypes.REGEN).contains(type)) amplifier = h;
-            else if (List.of(WEAKNESS, SLOW_FALLING).contains(type)) amplifier = t;
-            else if (LUCK == type) amplifier = l ? 1500 : 6000;
-            else if (TURTLE_MASTER == type) amplifier = u ? l ? 100 : 400 : x ? l ? 200 : 800 : l ? 100 : 400;
-
-            return new PotionEffect(p.getBasePotionData().getType().getEffectType(), amplifier, p.getBasePotionData().isUpgraded() ? 1 : 0);
-        }
-
-        return null;
-    }
-
     default boolean isAdaptableDamageCause(EntityDamageEvent event) {
-        Set<EntityDamageEvent.DamageCause> excludedCauses = Set.of(
-                // These are not damage causes that can are going to trigger adaptability
-                EntityDamageEvent.DamageCause.VOID,
-                EntityDamageEvent.DamageCause.LAVA,
-                EntityDamageEvent.DamageCause.HOT_FLOOR,
-                EntityDamageEvent.DamageCause.CRAMMING,
-                EntityDamageEvent.DamageCause.MELTING,
-                EntityDamageEvent.DamageCause.SUFFOCATION,
-                EntityDamageEvent.DamageCause.SUICIDE,
-                EntityDamageEvent.DamageCause.WITHER,
-                EntityDamageEvent.DamageCause.FLY_INTO_WALL,
-                EntityDamageEvent.DamageCause.FALL,
-                EntityDamageEvent.DamageCause.SONIC_BOOM,
-                EntityDamageEvent.DamageCause.THORNS
-        );
-        return !excludedCauses.contains(event.getCause());
+        return !NON_ADAPTABLE_DAMAGE_CAUSES.contains(event.getCause());
     }
 
     default void addPotionStacks(Player p, PotionEffectType potionEffect, int amplifier, int duration, boolean overlap) {
@@ -230,17 +211,10 @@ public interface Component {
             }
         }
         // if we didn't find an existing effect, add a new one
-        J.a(() -> {
-            try {
-                Thread.sleep(5);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            J.s(() -> {
-                p.addPotionEffect(new PotionEffect(potionEffect, duration, amplifier));
-                sp.play(p.getLocation(), Sound.ENTITY_IRON_GOLEM_STEP, 0.25f, 0.25f);
-            });
-        });
+        J.s(() -> {
+            p.addPotionEffect(new PotionEffect(potionEffect, duration, amplifier));
+            sp.play(p.getLocation(), Sound.ENTITY_IRON_GOLEM_STEP, 0.25f, 0.25f);
+        }, 1);
 
     }
 
@@ -279,6 +253,10 @@ public interface Component {
     }
 
     default void vfxMovingSphere(Location startLocation, Location endLocation, int ticks, Color color, double size, double density) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         World world = startLocation.getWorld();
         double startX = startLocation.getX();
         double startY = startLocation.getY();
@@ -322,6 +300,10 @@ public interface Component {
     }
 
     default void vfxMovingSwirlingSphere(Location startLocation, Location endLocation, int ticks, Color color, double size, double swirlRadius, double density) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         World world = startLocation.getWorld();
         double startX = startLocation.getX();
         double startY = startLocation.getY();
@@ -371,6 +353,10 @@ public interface Component {
     }
 
     default void vfxPlayerBoundingBoxOutline(Player player, Color color, int ticks, int particleCount) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         World world = player.getWorld();
         Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1.0f);
 
@@ -419,6 +405,10 @@ public interface Component {
     }
 
     default void vfxVortexSphere(Location startLocation, Location endLocation, int ticks, Color color, double radius) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         World world = startLocation.getWorld();
         Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1.0f);
 
@@ -466,6 +456,10 @@ public interface Component {
 
 
     default void vfxDome(Location center, double range, Color color, int particleCount) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1);
         World world = center.getWorld();
 
@@ -482,6 +476,10 @@ public interface Component {
     }
 
     default void vfxSphereV1(Player p, Location l, double radius, Particle particle, int verticalDensity, int radialDensity) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         for (double phi = 0; phi <= Math.PI; phi += Math.PI / verticalDensity) {
             for (double theta = 0; theta <= 2 * Math.PI; theta += Math.PI / radialDensity) {
                 double x = radius * Math.cos(theta) * Math.sin(phi);
@@ -497,6 +495,10 @@ public interface Component {
 
 
     default void vfxZuck(Location from, Location to) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         Vector v = from.clone().subtract(to).toVector();
         double l = v.length();
         v.normalize();
@@ -506,6 +508,10 @@ public interface Component {
     }
 
     default void vfxZuck(Location from, Location to, Particle particle) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         Vector v = from.clone().subtract(to).toVector();
         double l = v.length();
         v.normalize();
@@ -535,6 +541,10 @@ public interface Component {
 
     default void vfxParticleLine(Location start, Location end, Particle particle, int pointsPerLine, int particleCount, double offsetX, double offsetY, double offsetZ, double extra, @Nullable Double data, boolean forceDisplay,
                                  @Nullable Predicate<Location> operationPerPoint) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         double d = start.distance(end) / pointsPerLine;
         for (int i = 0; i < pointsPerLine; i++) {
             Location l = start.clone();
@@ -552,6 +562,10 @@ public interface Component {
     }
 
     default void vfxParticleLine(Location start, Location end, int particleCount, Particle particle) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         World world = start.getWorld();
         double distance = start.distance(end);
         Vector direction = end.toVector().subtract(start.toVector()).normalize();
@@ -618,6 +632,10 @@ public interface Component {
     }
 
     default void vfxCuboidOutline(Block block, Particle particle) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         List<Location> hollowCube = getHollowCuboid(block.getLocation(), 0.25);
         for (Location l : hollowCube) {
             block.getWorld().spawnParticle(particle, l, 1, 0F, 0F, 0F, 0.000);
@@ -625,6 +643,10 @@ public interface Component {
     }
 
     default void vfxCuboidOutline(Block blockStart, Block blockEnd, Particle particle) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         List<Location> hollowCube = getHollowCuboid(blockStart.getLocation(), blockEnd.getLocation(), 0.25);
         for (Location l : hollowCube) {
             blockStart.getWorld().spawnParticle(particle, l, 2, 0F, 0F, 0F, 0.000);
@@ -632,6 +654,10 @@ public interface Component {
     }
 
     default void vfxCuboidOutline(Block blockStart, Block blockEnd, Color color, int size) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         List<Location> hollowCube = getHollowCuboid(blockStart.getLocation(), blockEnd.getLocation(), 0.25);
         Particle.DustOptions dustOptions = new Particle.DustOptions(color, size);
         for (Location l : hollowCube) {
@@ -640,6 +666,10 @@ public interface Component {
     }
 
     default void vfxPrismOutline(Location placer, double outset, Particle particle, int particleCount) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
 
         Location top = new Location(placer.getWorld(), placer.getX(), placer.getY() + outset, placer.getZ());
         Location baseCorner1 = new Location(placer.getWorld(), placer.getX() - outset, placer.getY(), placer.getZ() - outset);
@@ -658,6 +688,10 @@ public interface Component {
     }
 
     default void vfxFastSphere(Location center, double range, Color color, int particleCount) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1);
         World world = center.getWorld();
 
@@ -680,6 +714,10 @@ public interface Component {
     }
 
     default void vfxLoadingRing(Location center, double radius, Color color, int durationTicks, int particleCount) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         World world = center.getWorld();
         Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1.0f);
 
@@ -704,6 +742,10 @@ public interface Component {
     }
 
     default void vfxLoadingRing(Location center, double radius, Particle particle, int durationTicks, int particleCount) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         World world = center.getWorld();
 
         new BukkitRunnable() {
@@ -728,10 +770,18 @@ public interface Component {
 
 
     default void vfxLevelUp(Player p) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         p.spawnParticle(Particle.REVERSE_PORTAL, p.getLocation().clone().add(0, 1.7, 0), 100, 0.1, 0.1, 0.1, 4.1);
     }
 
     default void vfxFastRing(Location location, double radius, Color color) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         for (int d = 0; d <= 90; d += 1) {
             Location particleLoc = new Location(location.getWorld(), location.getX(), location.getY(), location.getZ());
             particleLoc.setX(location.getX() + Math.cos(d) * radius);
@@ -741,6 +791,10 @@ public interface Component {
     }
 
     default void vfxFastRing(Location location, double radius, Particle particle) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         for (int d = 0; d <= 90; d += 1) {
             Location particleLoc = new Location(location.getWorld(), location.getX(), location.getY(), location.getZ());
             particleLoc.setX(location.getX() + Math.cos(d) * radius);
@@ -750,6 +804,10 @@ public interface Component {
     }
 
     default void vfxFastRing(Location location, double radius, Particle particle, int angle) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         for (int d = 0; d <= 90; d += angle) {
             Location particleLoc = new Location(location.getWorld(), location.getX(), location.getY(), location.getZ());
             particleLoc.setX(location.getX() + Math.cos(d) * radius);
@@ -759,6 +817,10 @@ public interface Component {
     }
 
     default void vfxShootParticle(Player player, Particle particle, double velocity, int count) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         Location location = player.getEyeLocation();
         Vector direction = location.getDirection();
         for (int i = 0; i < count; i++) {
@@ -767,6 +829,10 @@ public interface Component {
     }
 
     default void vfxParticleSpiral(Location center, int radius, int height, Particle type) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         double angle = 0;
         for (int i = 0; i <= height; i++) {
             double x = center.getX() + (radius * Math.cos(angle));
@@ -778,12 +844,20 @@ public interface Component {
 
 
     default void vfxXP(Player p, Location l, int amt) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         if (AdaptConfig.get().isUseEnchantmentTableParticleForActiveEffects()) {
             p.spawnParticle(ENCHANTMENT_TABLE, l, Math.min(amt / 10, 20), 0.5, 0.5, 0.5, 1);
         }
     }
 
     default void vfxXP(Location l) {
+        if (!areParticlesEnabled()) {
+            return;
+        }
+
         if (AdaptConfig.get().isUseEnchantmentTableParticleForActiveEffects()) {
             l.getWorld().spawnParticle(ENCHANTMENT_TABLE, l.add(0, 1.7, 0), 3, 0.1, 0.1, 0.1, 3);
         }

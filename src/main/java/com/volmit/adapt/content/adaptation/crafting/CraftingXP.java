@@ -19,9 +19,11 @@
 package com.volmit.adapt.content.adaptation.crafting;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdvancementSpec;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -41,19 +43,34 @@ public class CraftingXP extends SimpleAdaptation<CraftingXP.Config> {
     public CraftingXP() {
         super("crafting-xp");
         registerConfiguration(CraftingXP.Config.class);
-        setDisplayName(Localizer.dLocalize("crafting", "xp", "name"));
-        setDescription(Localizer.dLocalize("crafting", "xp", "description"));
-        setIcon(Material.EXPERIENCE_BOTTLE);
+        setDisplayName(Localizer.dLocalize("crafting.xp.name"));
+        setDescription(Localizer.dLocalize("crafting.xp.description"));
+        setIcon(Material.ENCHANTED_BOOK);
         setInterval(5580);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        AdvancementSpec xp25k = AdvancementSpec.challenge(
+                "challenge_crafting_xp_25k",
+                Material.EXPERIENCE_BOTTLE,
+                Localizer.dLocalize("advancement.challenge_crafting_xp_25k.title"),
+                Localizer.dLocalize("advancement.challenge_crafting_xp_25k.description")
+        );
+        AdvancementSpec xp1k = AdvancementSpec.challenge(
+                "challenge_crafting_xp_1k",
+                Material.CRAFTING_TABLE,
+                Localizer.dLocalize("advancement.challenge_crafting_xp_1k.title"),
+                Localizer.dLocalize("advancement.challenge_crafting_xp_1k.description")
+        ).withChild(xp25k);
+        registerAdvancementSpec(xp1k);
+        registerStatTracker(xp1k.statTracker("crafting.xp.items-crafted", 1000, 300));
+        registerStatTracker(xp25k.statTracker("crafting.xp.items-crafted", 25000, 1500));
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("crafting", "xp", "lore1"));
+        v.addLore(C.GREEN + Localizer.dLocalize("crafting.xp.lore1"));
     }
 
     @EventHandler
@@ -80,6 +97,7 @@ public class CraftingXP extends SimpleAdaptation<CraftingXP.Config> {
                     }
                     cooldown.put(p, System.currentTimeMillis());
                     p.getWorld().spawn(p.getLocation(), org.bukkit.entity.ExperienceOrb.class).setExperience(getLevel(p) * 2);
+                    getPlayer(p).getData().addStat("crafting.xp.items-crafted", 1);
                 }
             }
         }
@@ -101,12 +119,19 @@ public class CraftingXP extends SimpleAdaptation<CraftingXP.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Gain passive XP when crafting items.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
     }
 }

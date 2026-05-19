@@ -23,12 +23,17 @@ import static com.volmit.adapt.api.adaptation.chunk.ChunkLoading.loadChunkAsync;
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.BoundRedstoneTorch;
 import com.volmit.adapt.util.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -55,8 +60,8 @@ public class ArchitectWirelessRedstone extends SimpleAdaptation<ArchitectWireles
     public ArchitectWirelessRedstone() {
         super("architect-wireless-redstone");
         registerConfiguration(ArchitectWirelessRedstone.Config.class);
-        setDescription(Localizer.dLocalize("architect", "wirelessredstone", "description"));
-        setDisplayName(Localizer.dLocalize("architect", "wirelessredstone", "name"));
+        setDescription(Localizer.dLocalize("architect.wireless_redstone.description"));
+        setDisplayName(Localizer.dLocalize("architect.wireless_redstone.name"));
         setIcon(Material.REDSTONE_TORCH);
         setInterval(100);
         setBaseCost(getConfig().baseCost);
@@ -71,11 +76,29 @@ public class ArchitectWirelessRedstone extends SimpleAdaptation<ArchitectWireles
                 .result(BoundRedstoneTorch.io.withData(new BoundRedstoneTorch.Data(null)))
                 .build());
         cooldowns = new HashMap<>();
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.REDSTONE)
+                .key("challenge_architect_wireless_100")
+                .title(Localizer.dLocalize("advancement.challenge_architect_wireless_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_architect_wireless_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.REDSTONE)
+                        .key("challenge_architect_wireless_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_architect_wireless_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_architect_wireless_5k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_architect_wireless_100", "architect.wireless-redstone.pulses", 100, 300);
+        registerMilestone("challenge_architect_wireless_5k", "architect.wireless-redstone.pulses", 5000, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("architect", "wirelessredstone", "lore1"));
+        v.addLore(C.GREEN + Localizer.dLocalize("architect.wireless_redstone.lore1"));
     }
 
 
@@ -195,7 +218,7 @@ public class ArchitectWirelessRedstone extends SimpleAdaptation<ArchitectWireles
         if (!l.getBlock().getType().equals(Material.TARGET)) {
             return;
         }
-        if (getConfig().showParticles) {
+        if (areParticlesEnabled()) {
             vfxCuboidOutline(l.getBlock(), l.getBlock(), Color.RED, 1);
         }
         SoundPlayer spw = SoundPlayer.of(p.getWorld());
@@ -224,6 +247,7 @@ public class ArchitectWirelessRedstone extends SimpleAdaptation<ArchitectWireles
                     redBlock.setPower(15);
                     vfxCuboidOutline(l.getBlock(), l.getBlock(), Color.RED, 1);
                     b.setBlockData(redBlock);
+                    getPlayer(p).getData().addStat("architect.wireless-redstone.pulses", 1);
                     J.s(() -> {
                         redBlock.setPower(0);
                         b.setBlockData(redBlock);
@@ -248,7 +272,8 @@ public class ArchitectWirelessRedstone extends SimpleAdaptation<ArchitectWireles
 
     @Override
     public void onTick() {
-        for (Player p : Bukkit.getOnlinePlayers()) {
+        for (com.volmit.adapt.api.world.AdaptPlayer adaptPlayer : getServer().getOnlineAdaptPlayerSnapshot()) {
+            Player p = adaptPlayer.getPlayer();
             ItemStack hand = p.getInventory().getItemInMainHand();
             ItemStack offhand = p.getInventory().getItemInOffHand();
             if ((isRedstoneTorch(hand) && BoundRedstoneTorch.hasItemData(hand)) || (
@@ -266,14 +291,23 @@ public class ArchitectWirelessRedstone extends SimpleAdaptation<ArchitectWireles
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Use a crafted redstone remote to toggle redstone at a distance.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown for the Architect Wireless Redstone adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public int cooldown = 125;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Architect Wireless Redstone adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 0;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

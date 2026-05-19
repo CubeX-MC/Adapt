@@ -19,13 +19,20 @@
 package com.volmit.adapt.content.adaptation.crafting;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -34,8 +41,8 @@ public class CraftingReconstruction extends SimpleAdaptation<CraftingReconstruct
     public CraftingReconstruction() {
         super("crafting-reconstruction");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("crafting", "reconstruction", "description"));
-        setDisplayName(Localizer.dLocalize("crafting", "reconstruction", "name"));
+        setDescription(Localizer.dLocalize("crafting.reconstruction.description"));
+        setDisplayName(Localizer.dLocalize("crafting.reconstruction.name"));
         setIcon(Material.COAL_ORE);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
@@ -293,19 +300,38 @@ public class CraftingReconstruction extends SimpleAdaptation<CraftingReconstruct
                 .ingredient(Material.NETHERITE_SCRAP)
                 .result(new ItemStack(Material.ANCIENT_DEBRIS))
                 .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.RAW_IRON)
+                .key("challenge_crafting_recon_100")
+                .title(Localizer.dLocalize("advancement.challenge_crafting_recon_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_crafting_recon_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_crafting_recon_100", "crafting.reconstruction.ores-reconstructed", 100, 300);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("crafting", "reconstruction", "lore1"));
-        v.addLore(C.UNDERLINE + Localizer.dLocalize("crafting", "reconstruction", "lore2"));
-        v.addLore(C.YELLOW + Localizer.dLocalize("crafting", "reconstruction", "lore3"));
-        v.addLore(C.YELLOW + Localizer.dLocalize("crafting", "reconstruction", "lore4"));
+        v.addLore(C.GREEN + Localizer.dLocalize("crafting.reconstruction.lore1"));
+        v.addLore(C.UNDERLINE + Localizer.dLocalize("crafting.reconstruction.lore2"));
+        v.addLore(C.YELLOW + Localizer.dLocalize("crafting.reconstruction.lore3"));
+        v.addLore(C.YELLOW + Localizer.dLocalize("crafting.reconstruction.lore4"));
     }
 
     @EventHandler
     public void on(PlayerInteractEvent e) {
 
+    }
+
+    @EventHandler
+    public void on(CraftItemEvent e) {
+        if (e.isCancelled()) return;
+        Player p = (Player) e.getWhoClicked();
+        if (!hasAdaptation(p)) return;
+        if (e.getRecipe() != null && (e.getRecipe().getResult().getType().name().contains("ORE") || e.getRecipe().getResult().getType() == Material.ANCIENT_DEBRIS)) {
+            getPlayer(p).getData().addStat("crafting.reconstruction.ores-reconstructed", 1);
+        }
     }
 
     @Override
@@ -324,12 +350,19 @@ public class CraftingReconstruction extends SimpleAdaptation<CraftingReconstruct
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Recraft ores from their base smelted components.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

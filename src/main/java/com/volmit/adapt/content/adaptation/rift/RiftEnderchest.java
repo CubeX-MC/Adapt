@@ -19,10 +19,17 @@
 package com.volmit.adapt.content.adaptation.rift;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
+import com.volmit.adapt.api.world.PlayerAdaptation;
+import com.volmit.adapt.api.world.PlayerSkillLine;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
 import com.volmit.adapt.util.SoundPlayer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -36,8 +43,8 @@ import org.bukkit.inventory.ItemStack;
 public class RiftEnderchest extends SimpleAdaptation<RiftEnderchest.Config> {
     public RiftEnderchest() {
         super("rift-enderchest");
-        setDescription(Localizer.dLocalize("rift", "chest", "description"));
-        setDisplayName(Localizer.dLocalize("rift", "chest", "name"));
+        setDescription(Localizer.dLocalize("rift.chest.description"));
+        setDisplayName(Localizer.dLocalize("rift.chest.name"));
         setIcon(Material.ENDER_CHEST);
         setBaseCost(0);
         setCostFactor(0);
@@ -45,11 +52,20 @@ public class RiftEnderchest extends SimpleAdaptation<RiftEnderchest.Config> {
         setInitialCost(10);
         setInterval(9248);
         registerConfiguration(Config.class);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ENDER_CHEST)
+                .key("challenge_rift_enderchest_200")
+                .title(Localizer.dLocalize("advancement.challenge_rift_enderchest_200.title"))
+                .description(Localizer.dLocalize("advancement.challenge_rift_enderchest_200.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_rift_enderchest_200", "rift.enderchest.opens", 200, 300);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.ITALIC + Localizer.dLocalize("rift", "chest", "lore1"));
+        v.addLore(C.ITALIC + Localizer.dLocalize("rift.chest.lore1"));
     }
 
     @EventHandler
@@ -68,13 +84,15 @@ public class RiftEnderchest extends SimpleAdaptation<RiftEnderchest.Config> {
             p.setCooldown(Material.ENDER_CHEST, 100);
 
             if ((e.getAction() == Action.RIGHT_CLICK_AIR) || (e.getAction() == Action.LEFT_CLICK_AIR) || (e.getAction() == Action.LEFT_CLICK_BLOCK)) {
-                if (getPlayer(p).getData().getSkillLines().get("rift").getAdaptations().get("rift-resist") != null
-                        && getPlayer(p).getData().getSkillLines().get("rift").getAdaptations().get("rift-resist").getLevel() > 0) {
+                PlayerSkillLine line = getPlayer(p).getData().getSkillLine("rift");
+                PlayerAdaptation adaptation = line != null ? line.getAdaptation("rift-resist") : null;
+                if (adaptation != null && adaptation.getLevel() > 0) {
                     RiftResist.riftResistStackAdd(p, 10, 2);
                 }
                 sp.play(p.getLocation(), Sound.PARTICLE_SOUL_ESCAPE, 1f, 0.10f);
                 sp.play(p.getLocation(), Sound.BLOCK_ENDER_CHEST_OPEN, 1f, 0.10f);
                 p.openInventory(p.getEnderChest());
+                getPlayer(p).getData().addStat("rift.enderchest.opens", 1);
             }
         }
     }
@@ -96,8 +114,11 @@ public class RiftEnderchest extends SimpleAdaptation<RiftEnderchest.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Open an enderchest by left-clicking it in your hand.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
     }
 }

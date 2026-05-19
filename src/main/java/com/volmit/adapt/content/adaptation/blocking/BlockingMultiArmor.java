@@ -19,9 +19,14 @@
 package com.volmit.adapt.content.adaptation.blocking;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.ItemListings;
 import com.volmit.adapt.content.item.multiItems.MultiArmor;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -51,8 +56,8 @@ public class BlockingMultiArmor extends SimpleAdaptation<BlockingMultiArmor.Conf
     public BlockingMultiArmor() {
         super("blocking-multiarmor");
         registerConfiguration(BlockingMultiArmor.Config.class);
-        setDisplayName(Localizer.dLocalize("blocking", "multiarmor", "name"));
-        setDescription(Localizer.dLocalize("blocking", "multiarmor", "description"));
+        setDisplayName(Localizer.dLocalize("blocking.multi_armor.name"));
+        setDescription(Localizer.dLocalize("blocking.multi_armor.description"));
         setIcon(Material.ELYTRA);
         setInterval(20202);
         setBaseCost(getConfig().baseCost);
@@ -60,16 +65,34 @@ public class BlockingMultiArmor extends SimpleAdaptation<BlockingMultiArmor.Conf
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         cooldowns = new HashMap<>();
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ELYTRA)
+                .key("challenge_blocking_multi_200")
+                .title(Localizer.dLocalize("advancement.challenge_blocking_multi_200.title"))
+                .description(Localizer.dLocalize("advancement.challenge_blocking_multi_200.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.NETHERITE_CHESTPLATE)
+                        .key("challenge_blocking_multi_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_blocking_multi_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_blocking_multi_5k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_blocking_multi_200", "blocking.multi-armor.swaps", 200, 400);
+        registerMilestone("challenge_blocking_multi_5k", "blocking.multi-armor.swaps", 5000, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("blocking", "multiarmor", "lore1"));
-        v.addLore(C.GRAY + "" + C.GRAY + Localizer.dLocalize("blocking", "multiarmor", "lore2"));
-        v.addLore(C.GREEN + Localizer.dLocalize("blocking", "multiarmor", "lore3"));
-        v.addLore(C.RED + Localizer.dLocalize("blocking", "multiarmor", "lore4"));
-        v.addLore(C.GRAY + Localizer.dLocalize("blocking", "multiarmor", "lore5"));
-        v.addLore(C.UNDERLINE + Localizer.dLocalize("blocking", "multiarmor", "lore6"));
+        v.addLore(C.GRAY + Localizer.dLocalize("blocking.multi_armor.lore1"));
+        v.addLore(C.GRAY + "" + C.GRAY + Localizer.dLocalize("blocking.multi_armor.lore2"));
+        v.addLore(C.GREEN + Localizer.dLocalize("blocking.multi_armor.lore3"));
+        v.addLore(C.RED + Localizer.dLocalize("blocking.multi_armor.lore4"));
+        v.addLore(C.GRAY + Localizer.dLocalize("blocking.multi_armor.lore5"));
+        v.addLore(C.UNDERLINE + Localizer.dLocalize("blocking.multi_armor.lore6"));
     }
 
     @Override
@@ -105,6 +128,7 @@ public class BlockingMultiArmor extends SimpleAdaptation<BlockingMultiArmor.Conf
                 cooldowns.put(p, System.currentTimeMillis());
                 spw.play(p.getLocation(), Sound.ITEM_ARMOR_EQUIP_ELYTRA, 1f, 0.77f);
                 spw.play(p.getLocation(), Sound.BLOCK_BEEHIVE_SHEAR, 0.5f, 0.77f);
+                getPlayer(p).getData().addStat("blocking.multi-armor.swaps", 1);
 
             } else if (p.getFallDistance() > 4) {
                 if (isElytra(chest)) {
@@ -114,6 +138,7 @@ public class BlockingMultiArmor extends SimpleAdaptation<BlockingMultiArmor.Conf
                 cooldowns.put(p, System.currentTimeMillis());
                 spw.play(p.getLocation(), Sound.ITEM_ARMOR_EQUIP_ELYTRA, 1f, 0.77f);
                 spw.play(p.getLocation(), Sound.ENTITY_IRON_GOLEM_STEP, 0.5f, 0.77f);
+                getPlayer(p).getData().addStat("blocking.multi-armor.swaps", 1);
             }
         }
     }
@@ -224,13 +249,21 @@ public class BlockingMultiArmor extends SimpleAdaptation<BlockingMultiArmor.Conf
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Bind Elytras to armor for dynamic merge and swap.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Starting Slots for the Blocking Multi Armor adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int startingSlots = 1;
     }
 }

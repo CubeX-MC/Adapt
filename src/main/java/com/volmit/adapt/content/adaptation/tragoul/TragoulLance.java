@@ -18,9 +18,14 @@ package com.volmit.adapt.content.adaptation.tragoul;/*--------------------------
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -42,14 +47,32 @@ public class TragoulLance extends SimpleAdaptation<TragoulLance.Config> {
     public TragoulLance() {
         super("tragoul-lance");
         registerConfiguration(TragoulLance.Config.class);
-        setDescription(Localizer.dLocalize("tragoul", "lance", "description"));
-        setDisplayName(Localizer.dLocalize("tragoul", "lance", "name"));
+        setDescription(Localizer.dLocalize("tragoul.lance.description"));
+        setDisplayName(Localizer.dLocalize("tragoul.lance.name"));
         setIcon(Material.TRIDENT);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         cooldowns = new HashMap<>();
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_SWORD)
+                .key("challenge_tragoul_lance_200")
+                .title(Localizer.dLocalize("advancement.challenge_tragoul_lance_200.title"))
+                .description(Localizer.dLocalize("advancement.challenge_tragoul_lance_200.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.DIAMOND_SWORD)
+                .key("challenge_tragoul_lance_kills_100")
+                .title(Localizer.dLocalize("advancement.challenge_tragoul_lance_kills_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_tragoul_lance_kills_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_tragoul_lance_200", "tragoul.lance.lances-spawned", 200, 400);
+        registerMilestone("challenge_tragoul_lance_kills_100", "tragoul.lance.lance-kills", 100, 1000);
     }
 
 
@@ -68,6 +91,7 @@ public class TragoulLance extends SimpleAdaptation<TragoulLance.Config> {
                 double seekerDamage = getConfig().seekerDamageMultiplier * damageDealt;
 
                 triggerSeeker(p, event.getEntity(), seekerDamage, level, baseSeekerRange);
+                getPlayer(p).getData().addStat("tragoul.lance.lance-kills", 1);
             }
         }
     }
@@ -91,6 +115,7 @@ public class TragoulLance extends SimpleAdaptation<TragoulLance.Config> {
         }
 
         if (nearest != null) {
+            getPlayer(p).getData().addStat("tragoul.lance.lances-spawned", 1);
             vfxMovingSphere(origin.getLocation(), nearest.getLocation(), getConfig().seekerDelay, Color.MAROON, 0.25, 4);
             double seekerDamage = getConfig().seekerDamageMultiplier * damage;
             double selfDamage = getConfig().selfDamageMultiplier * seekerDamage;
@@ -127,21 +152,31 @@ public class TragoulLance extends SimpleAdaptation<TragoulLance.Config> {
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("tragoul", "lance", "lore1"));
-        v.addLore(C.YELLOW + Localizer.dLocalize("tragoul", "lance", "lore2") );
-        v.addLore(C.YELLOW + Localizer.dLocalize("tragoul", "lance", "lore3") + level);
+        v.addLore(C.GREEN + Localizer.dLocalize("tragoul.lance.lore1"));
+        v.addLore(C.YELLOW + Localizer.dLocalize("tragoul.lance.lore2") );
+        v.addLore(C.YELLOW + Localizer.dLocalize("tragoul.lance.lore3") + level);
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Killing an enemy spawns a lance that seeks and damages a nearby enemy.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
-        int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
+        int baseCost = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
-        int initialCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
+        int initialCost = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Seeker Delay for the Tragoul Lance adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int seekerDelay = 20;
-        double costFactor = 1.10;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.72;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Seeker Damage Multiplier for the Tragoul Lance adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double seekerDamageMultiplier = 0.5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Self Damage Multiplier for the Tragoul Lance adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double selfDamageMultiplier = 0.5;
     }
 }

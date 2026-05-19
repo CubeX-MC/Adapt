@@ -20,7 +20,13 @@ package com.volmit.adapt.content.adaptation.architect;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.collection.KMap;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -37,29 +43,46 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class ArchitectPlacement extends SimpleAdaptation<ArchitectPlacement.Config> {
-    private final HashMap<Player, Map<Block, BlockFace>> totalMap = new HashMap<>();
+    private final KMap<Player, KMap<Block, BlockFace>> totalMap = new KMap<>();
 
     public ArchitectPlacement() {
         super("architect-placement");
         registerConfiguration(ArchitectPlacement.Config.class);
-        setDescription(Localizer.dLocalize("architect", "placement", "description"));
-        setDisplayName(Localizer.dLocalize("architect", "placement", "name"));
+        setDescription(Localizer.dLocalize("architect.placement.description"));
+        setDisplayName(Localizer.dLocalize("architect.placement.name"));
         setIcon(Material.SCAFFOLDING);
         setInterval(360);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.BRICKS)
+                .key("challenge_architect_placement_1k")
+                .title(Localizer.dLocalize("advancement.challenge_architect_placement_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_architect_placement_1k.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.BRICKS)
+                        .key("challenge_architect_placement_25k")
+                        .title(Localizer.dLocalize("advancement.challenge_architect_placement_25k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_architect_placement_25k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_architect_placement_1k", "architect.placement.blocks-placed", 1000, 300);
+        registerMilestone("challenge_architect_placement_25k", "architect.placement.blocks-placed", 25000, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("architect", "placement", "lore3"));
+        v.addLore(C.GREEN + Localizer.dLocalize("architect.placement.lore3"));
     }
 
     private BlockFace getBlockFace(Player player) {
@@ -76,48 +99,68 @@ public class ArchitectPlacement extends SimpleAdaptation<ArchitectPlacement.Conf
         totalMap.remove(p);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void on(BlockPlaceEvent e) {
-        if (e.isCancelled()) {
-            return;
-        }
         Player p = e.getPlayer();
         SoundPlayer sp = SoundPlayer.of(p);
+        if (!hasAdaptation(p) || !p.isSneaking())
+            return;
 
-        if (hasAdaptation(p) && !totalMap.isEmpty() && totalMap.get(p) != null && totalMap.get(p).size() > 0) {
-            ItemStack is = p.getInventory().getItemInMainHand().clone();
-            ItemStack hand = p.getInventory().getItemInMainHand();
-            if (p.isSneaking() && is.getType().isBlock()) {
-                double v = getValue(e.getBlock());
-                int handSizeAfter = is.getAmount() - totalMap.get(p).size();
-                if (handSizeAfter >= 0) {
-                    for (Block b : totalMap.get(p).keySet()) { // Block Placer
-                        if (!canBlockPlace(p, b.getLocation())) {
-                            Adapt.verbose("Player " + p.getName() + " doesn't have permission.");
-                            continue;
-                        }
-                        BlockFace face = totalMap.get(p).get(b);
-                        if (b.getWorld().getBlockAt(b.getRelative(face).getLocation()).getType() == Material.AIR) {
-                            if (b.getRelative(face).getLocation() != e.getBlock().getLocation()) {
-                                b.getWorld().setBlockData(b.getRelative(face).getLocation(), b.getBlockData());
-                                getPlayer(p).getData().addStat("blocks.placed", 1);
-                                getPlayer(p).getData().addStat("blocks.placed.value", v);
-                                sp.play(b.getLocation(), Sound.BLOCK_AZALEA_BREAK, 0.4f, 0.25f);
-                                xp(p, 2);
-                            }
-                        }
-                        is.setAmount(is.getAmount() - 1);
-                        hand.setAmount(is.getAmount());
-                    }
-                    totalMap.remove(p);
-                    if (hand.getAmount() > 0) {
-                        runPlayerViewport(getBlockFace(p), p.getTargetBlock(null, 5), p.getInventory().getItemInMainHand().getType(), p);
-                    }
-                    e.setCancelled(true);
-                } else {
-                    Adapt.messagePlayer(p, C.RED + Localizer.dLocalize("architect", "placement", "lore1") + " " + C.GREEN + totalMap.get(p).size() + C.RED + " " + Localizer.dLocalize("architect", "placement", "lore2"));
-                }
+        var blocks = totalMap.get(p);
+        if (blocks == null || blocks.isEmpty())
+            return;
+
+        ItemStack hand = e.getItemInHand();
+        if (!hand.getType().isBlock() || blocks.keys().nextElement().getType() != hand.getType())
+            return;
+
+        double v = getValue(e.getBlock());
+        Block ignored = blocks.keySet()
+                        .stream()
+                        .filter(b -> b.getRelative(blocks.get(b)).equals(e.getBlock()))
+                        .findFirst()
+                        .orElse(null);
+
+        if (hand.getAmount() < blocks.size()) {
+            Adapt.messagePlayer(p, C.RED + Localizer.dLocalize("architect.placement.lore1") + " " + C.GREEN + blocks.size() + C.RED + " " + Localizer.dLocalize("architect.placement.lore2"));
+            return;
+        }
+
+        if (ignored != null) blocks.remove(ignored);
+        for (Block b : blocks.keySet()) { // Block Placer
+            Block relative = b.getRelative(blocks.get(b));
+            if (!relative.getType().isAir())
+                continue;
+
+            if (!canBlockPlace(p, relative.getLocation())) {
+                Adapt.verbose("Player " + p.getName() + " doesn't have permission.");
+                continue;
             }
+
+            relative.setBlockData(b.getBlockData());
+            getPlayer(p).getData().addStat("blocks.placed", 1);
+            getPlayer(p).getData().addStat("blocks.placed.value", v);
+            getPlayer(p).getData().addStat("architect.placement.blocks-placed", 1);
+            sp.play(b.getLocation(), Sound.BLOCK_AZALEA_BREAK, 0.4f, 0.25f);
+            xp(p, 2);
+
+            hand.setAmount(hand.getAmount() - 1);
+        }
+
+        if (ignored != null) {
+            e.getBlock().setBlockData(ignored.getBlockData());
+            getPlayer(p).getData().addStat("blocks.placed", 1);
+            getPlayer(p).getData().addStat("blocks.placed.value", v);
+            getPlayer(p).getData().addStat("architect.placement.blocks-placed", 1);
+            sp.play(ignored.getLocation(), Sound.BLOCK_AZALEA_BREAK, 0.4f, 0.25f);
+            xp(p, 2);
+
+            hand.setAmount(hand.getAmount() - 1);
+        } else e.setCancelled(true);
+
+        totalMap.remove(p);
+        if (hand.getAmount() > 0) {
+            runPlayerViewport(getBlockFace(p), p.getTargetBlock(null, 5), p.getInventory().getItemInMainHand().getType(), p);
         }
     }
 
@@ -178,7 +221,7 @@ public class ArchitectPlacement extends SimpleAdaptation<ArchitectPlacement.Conf
                 for (int y = block.getY() - 1; y <= block.getY() + 1; y++) {
                     if (handMaterial == block.getWorld().getBlockAt(x, y, block.getZ()).getType()) {
                         if (totalMap.get(p) == null) {
-                            Map<Block, BlockFace> map = new HashMap<>();
+                            KMap<Block, BlockFace> map = new KMap<>();
                             map.put(block.getWorld().getBlockAt(x, y, block.getZ()), viewPortBlock);
                             totalMap.put(p, map);
                         } else if (totalMap.get(p).size() <= getConfig().maxBlocks) {
@@ -192,7 +235,7 @@ public class ArchitectPlacement extends SimpleAdaptation<ArchitectPlacement.Conf
                 for (int y = block.getY() - 1; y <= block.getY() + 1; y++) {
                     if (handMaterial == block.getWorld().getBlockAt(block.getX(), y, z).getType()) {
                         if (totalMap.get(p) == null) {
-                            Map<Block, BlockFace> map = new HashMap<>();
+                            KMap<Block, BlockFace> map = new KMap<>();
                             map.put(block.getWorld().getBlockAt(block.getX(), y, z), viewPortBlock);
                             totalMap.put(p, map);
                         } else if (totalMap.get(p).size() <= getConfig().maxBlocks) {
@@ -206,7 +249,7 @@ public class ArchitectPlacement extends SimpleAdaptation<ArchitectPlacement.Conf
                 for (int x = block.getX() - 1; x <= block.getX() + 1; x++) {
                     if (handMaterial == block.getWorld().getBlockAt(x, block.getY(), z).getType()) {
                         if (totalMap.get(p) == null) {
-                            Map<Block, BlockFace> map = new HashMap<>();
+                            KMap<Block, BlockFace> map = new KMap<>();
                             map.put(block.getWorld().getBlockAt(x, block.getY(), z), viewPortBlock);
                             totalMap.put(p, map);
                         } else if (totalMap.get(p).size() <= getConfig().maxBlocks) {
@@ -232,38 +275,44 @@ public class ArchitectPlacement extends SimpleAdaptation<ArchitectPlacement.Conf
     @Override
     public void onTick() {
         if (!totalMap.isEmpty()) {
-            J.a(() -> {
-                for (Player p : totalMap.keySet()) { // Get every player that has a map
-                    if (!hasAdaptation(p) || !p.isSneaking()) {
-                        totalMap.clear();
+            for (Player p : totalMap.keySet()) { // Get every player that has a map
+                if (!hasAdaptation(p) || !p.isSneaking()) {
+                    totalMap.clear();
+                    return;
+                }
+                Map<Block, BlockFace> blockRender = totalMap.get(p);
+                for (Block b : blockRender.keySet()) { // Get the blocks in that map that bind with a BlockFace
+                    if (b instanceof Container) { // return if block is a container
                         return;
                     }
-                    Map<Block, BlockFace> blockRender = totalMap.get(p);
-                    for (Block b : blockRender.keySet()) { // Get the blocks in that map that bind with a BlockFace
-                        if (b instanceof Container) { // return if block is a container
-                            return;
-                        }
-                        BlockFace bf = blockRender.get(b); // Get that blockface
-                        Block transposedBlock = b.getRelative(bf);
-                        if (getConfig().showParticles) {
-
-                            vfxCuboidOutline(transposedBlock, Particle.REVERSE_PORTAL);
-                        }
+                    BlockFace bf = blockRender.get(b); // Get that blockface
+                    Block transposedBlock = b.getRelative(bf);
+                    if (areParticlesEnabled()) {
+                        vfxCuboidOutline(transposedBlock, Particle.REVERSE_PORTAL);
                     }
                 }
-            });
+            }
         }
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Place multiple blocks at once while sneaking with a matching block.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Blocks for the Architect Placement adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         public int maxBlocks = 20;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Architect Placement adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 2;
     }
 }

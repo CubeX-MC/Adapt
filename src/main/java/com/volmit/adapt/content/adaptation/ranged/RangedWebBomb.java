@@ -20,11 +20,16 @@ package com.volmit.adapt.content.adaptation.ranged;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
 import com.volmit.adapt.api.recipe.MaterialChar;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.BoundSnowBall;
 import com.volmit.adapt.util.*;
-import com.volmit.adapt.util.reflect.enums.Particles;
+import com.volmit.adapt.util.config.ConfigDescription;
+import com.volmit.adapt.util.reflect.registries.Particles;
 import lombok.NoArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -56,8 +61,8 @@ public class RangedWebBomb extends SimpleAdaptation<RangedWebBomb.Config> {
     public RangedWebBomb() {
         super("ranged-webshot");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("ranged", "webshot", "description"));
-        setDisplayName(Localizer.dLocalize("ranged", "webshot", "name"));
+        setDescription(Localizer.dLocalize("ranged.web_shot.description"));
+        setDisplayName(Localizer.dLocalize("ranged.web_shot.name"));
         setIcon(Material.COBWEB);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
@@ -76,12 +81,21 @@ public class RangedWebBomb extends SimpleAdaptation<RangedWebBomb.Config> {
                 .build());
         activeBlocks = new HashSet<>();
         activeSnowballs = new HashMap<>();
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.COBWEB)
+                .key("challenge_ranged_web_200")
+                .title(Localizer.dLocalize("advancement.challenge_ranged_web_200.title"))
+                .description(Localizer.dLocalize("advancement.challenge_ranged_web_200.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_ranged_web_200", "ranged.web-bomb.mobs-trapped", 200, 300);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("ranged", "webshot", "lore1"));
-        v.addLore(C.YELLOW + "+ " + level + C.GRAY + " " + Localizer.dLocalize("ranged", "webshot", "lore2"));
+        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("ranged.web_shot.lore1"));
+        v.addLore(C.YELLOW + "+ " + level + C.GRAY + " " + Localizer.dLocalize("ranged.web_shot.lore2"));
     }
 
 
@@ -105,6 +119,9 @@ public class RangedWebBomb extends SimpleAdaptation<RangedWebBomb.Config> {
             Adapt.verbose("Snowball Got: " + snowball.getEntityId() + " " + snowball.getUniqueId());
             if (activeSnowballs.containsKey(Bukkit.getEntity(snowball.getUniqueId()))) {
                 Adapt.verbose("Detected snowball hit");
+                if (e.getHitEntity() != null) {
+                    getPlayer(p).getData().addStat("ranged.web-bomb.mobs-trapped", 1);
+                }
                 activeSnowballs.remove(snowball);
                 snowball.remove();
                 Set<Block> locs = new HashSet<>();
@@ -151,12 +168,12 @@ public class RangedWebBomb extends SimpleAdaptation<RangedWebBomb.Config> {
         });
         SoundPlayer spw = SoundPlayer.of(block.getWorld());
         spw.play(block.getLocation(), Sound.BLOCK_ROOTED_DIRT_PLACE, 1.0f, 1.0f);
-        if (getConfig().showParticles) {
+        if (areParticlesEnabled()) {
 
             vfxCuboidOutline(block, Particle.CLOUD);
             vfxCuboidOutline(block, Particle.WHITE_ASH);
         }
-        J.a(() -> removeFoundation(block), seconds * 16);
+        J.s(() -> removeFoundation(block), seconds * 16);
     }
 
     public void removeFoundation(Block block) {
@@ -170,7 +187,7 @@ public class RangedWebBomb extends SimpleAdaptation<RangedWebBomb.Config> {
         });
         SoundPlayer spw = SoundPlayer.of(block.getWorld());
         spw.play(block.getLocation(), Sound.BLOCK_ROOTED_DIRT_BREAK, 1.0f, 1.0f);
-        if (getConfig().showParticles) {
+        if (areParticlesEnabled()) {
             vfxCuboidOutline(block, Particles.ENCHANTMENT_TABLE);
         }
     }
@@ -250,13 +267,21 @@ public class RangedWebBomb extends SimpleAdaptation<RangedWebBomb.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Throw a crafted web snare to trap targets in cobwebs.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Ranged Web Bomb adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 1;
-        double costFactor = 1.5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.9;
     }
 }

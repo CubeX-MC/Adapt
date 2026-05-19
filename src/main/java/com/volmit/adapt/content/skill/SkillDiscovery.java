@@ -19,17 +19,26 @@
 package com.volmit.adapt.content.skill;
 
 import com.volmit.adapt.Adapt;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.skill.SimpleSkill;
+import com.volmit.adapt.api.world.AdaptPlayer;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.api.world.Discovery;
 import com.volmit.adapt.content.adaptation.discovery.DiscoveryArmor;
+import com.volmit.adapt.content.adaptation.discovery.DiscoveryArchaeologist;
+import com.volmit.adapt.content.adaptation.discovery.DiscoveryBetterMending;
+import com.volmit.adapt.content.adaptation.discovery.DiscoveryCartographerPulse;
 import com.volmit.adapt.content.adaptation.discovery.DiscoveryUnity;
 import com.volmit.adapt.content.adaptation.discovery.DiscoveryVillagerAtt;
 import com.volmit.adapt.content.adaptation.discovery.DiscoveryXpResist;
 import com.volmit.adapt.util.C;
+import com.volmit.adapt.util.CustomModel;
 import com.volmit.adapt.util.Form;
 import com.volmit.adapt.util.J;
 import com.volmit.adapt.util.Localizer;
-import com.volmit.adapt.util.reflect.enums.Particles;
+import com.volmit.adapt.util.reflect.registries.Particles;
 import lombok.NoArgsConstructor;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
@@ -53,17 +62,120 @@ import java.util.Map;
 
 public class SkillDiscovery extends SimpleSkill<SkillDiscovery.Config> {
     public SkillDiscovery() {
-        super("discovery", Localizer.dLocalize("skill", "discovery", "icon"));
+        super("discovery", Localizer.dLocalize("skill.discovery.icon"));
         registerConfiguration(Config.class);
         setColor(C.AQUA);
-        setDescription(Localizer.dLocalize("skill", "discovery", "description"));
-        setDisplayName(Localizer.dLocalize("skill", "discovery", "name"));
+        setDescription(Localizer.dLocalize("skill.discovery.description"));
+        setDisplayName(Localizer.dLocalize("skill.discovery.name"));
         setInterval(500);
         setIcon(Material.FILLED_MAP);
         registerAdaptation(new DiscoveryUnity());
         registerAdaptation(new DiscoveryArmor());
         registerAdaptation(new DiscoveryXpResist());
         registerAdaptation(new DiscoveryVillagerAtt());
+        registerAdaptation(new DiscoveryBetterMending());
+        registerAdaptation(new DiscoveryArchaeologist());
+        registerAdaptation(new DiscoveryCartographerPulse());
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ITEM_FRAME).key("challenge_discover_items_50")
+                .title(Localizer.dLocalize("advancement.challenge_discover_items_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_discover_items_50.description"))
+                .model(CustomModel.get(Material.ITEM_FRAME, "advancement", "discovery", "challenge_discover_items_50"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.CHEST)
+                        .key("challenge_discover_items_250")
+                        .title(Localizer.dLocalize("advancement.challenge_discover_items_250.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_discover_items_250.description"))
+                        .model(CustomModel.get(Material.CHEST, "advancement", "discovery", "challenge_discover_items_250"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_discover_items_50", "discovery.items", 50, 500);
+        registerMilestone("challenge_discover_items_250", "discovery.items", 250, 2500);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.GRASS_BLOCK).key("challenge_discover_blocks_50")
+                .title(Localizer.dLocalize("advancement.challenge_discover_blocks_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_discover_blocks_50.description"))
+                .model(CustomModel.get(Material.GRASS_BLOCK, "advancement", "discovery", "challenge_discover_blocks_50"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.STONE_BRICKS)
+                        .key("challenge_discover_blocks_250")
+                        .title(Localizer.dLocalize("advancement.challenge_discover_blocks_250.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_discover_blocks_250.description"))
+                        .model(CustomModel.get(Material.STONE_BRICKS, "advancement", "discovery", "challenge_discover_blocks_250"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_discover_blocks_50", "discovery.blocks", 50, 500);
+        registerMilestone("challenge_discover_blocks_250", "discovery.blocks", 250, 2500);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.EGG).key("challenge_discover_mobs_25")
+                .title(Localizer.dLocalize("advancement.challenge_discover_mobs_25.title"))
+                .description(Localizer.dLocalize("advancement.challenge_discover_mobs_25.description"))
+                .model(CustomModel.get(Material.EGG, "advancement", "discovery", "challenge_discover_mobs_25"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.SPAWNER)
+                        .key("challenge_discover_mobs_75")
+                        .title(Localizer.dLocalize("advancement.challenge_discover_mobs_75.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_discover_mobs_75.description"))
+                        .model(CustomModel.get(Material.SPAWNER, "advancement", "discovery", "challenge_discover_mobs_75"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_discover_mobs_25", "discovery.mobs", 25, 500);
+        registerMilestone("challenge_discover_mobs_75", "discovery.mobs", 75, 2500);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.MAP).key("challenge_discover_biomes_10")
+                .title(Localizer.dLocalize("advancement.challenge_discover_biomes_10.title"))
+                .description(Localizer.dLocalize("advancement.challenge_discover_biomes_10.description"))
+                .model(CustomModel.get(Material.MAP, "advancement", "discovery", "challenge_discover_biomes_10"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.FILLED_MAP)
+                        .key("challenge_discover_biomes_40")
+                        .title(Localizer.dLocalize("advancement.challenge_discover_biomes_40.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_discover_biomes_40.description"))
+                        .model(CustomModel.get(Material.FILLED_MAP, "advancement", "discovery", "challenge_discover_biomes_40"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_discover_biomes_10", "discovery.biomes", 10, 500);
+        registerMilestone("challenge_discover_biomes_40", "discovery.biomes", 40, 2500);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.APPLE).key("challenge_discover_foods_10")
+                .title(Localizer.dLocalize("advancement.challenge_discover_foods_10.title"))
+                .description(Localizer.dLocalize("advancement.challenge_discover_foods_10.description"))
+                .model(CustomModel.get(Material.APPLE, "advancement", "discovery", "challenge_discover_foods_10"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.GOLDEN_APPLE)
+                        .key("challenge_discover_foods_30")
+                        .title(Localizer.dLocalize("advancement.challenge_discover_foods_30.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_discover_foods_30.description"))
+                        .model(CustomModel.get(Material.GOLDEN_APPLE, "advancement", "discovery", "challenge_discover_foods_30"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_discover_foods_10", "discovery.foods", 10, 500);
+        registerMilestone("challenge_discover_foods_30", "discovery.foods", 30, 2500);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -137,7 +249,7 @@ public class SkillDiscovery extends SimpleSkill<SkillDiscovery.Config> {
 
     private void scheduleSeeWorld(Player p) {
         try {
-            J.a(() -> seeWorld(p, p.getWorld()), 15);
+            J.s(() -> seeWorld(p, p.getWorld()), 15);
         } catch (Exception e) {
             Adapt.error("Failed to discover world " + p.getWorld().getName());
         }
@@ -147,7 +259,8 @@ public class SkillDiscovery extends SimpleSkill<SkillDiscovery.Config> {
         Discovery<String> d = getPlayer(p).getData().getSeenBlocks();
         if (d.isNewDiscovery(bd.getAsString())) {
             xp(p, getConfig().discoverBlockBaseXP + (getValue(bd) * getConfig().discoverBlockValueXPMultiplier));
-            if (getConfig().showParticles) {
+            getPlayer(p).getData().addStat("discovery.blocks", 1);
+            if (areParticlesEnabled()) {
                 p.spawnParticle(Particles.TOTEM, l.clone().add(0.5, 0.5, 0.5), 9, 0, 0, 0, 0.3);
             }
         }
@@ -159,6 +272,7 @@ public class SkillDiscovery extends SimpleSkill<SkillDiscovery.Config> {
         Discovery<Material> d = getPlayer(p).getData().getSeenItems();
         if (d.isNewDiscovery(bd)) {
             xp(p, getConfig().discoverItemBaseXP + (getValue(bd) * getConfig().discoverItemValueXPMultiplier));
+            getPlayer(p).getData().addStat("discovery.items", 1);
         }
     }
 
@@ -182,6 +296,7 @@ public class SkillDiscovery extends SimpleSkill<SkillDiscovery.Config> {
         Discovery<Material> d = getPlayer(p).getData().getSeenFoods();
         if (d.isNewDiscovery(bd)) {
             xp(p, getConfig().discoverFoodTypeXP);
+            getPlayer(p).getData().addStat("discovery.foods", 1);
         }
     }
 
@@ -189,6 +304,7 @@ public class SkillDiscovery extends SimpleSkill<SkillDiscovery.Config> {
         Discovery<EntityType> d = getPlayer(p).getData().getSeenMobs();
         if (d.isNewDiscovery(bd.getType())) {
             xp(p, getConfig().discoverEntityTypeXP);
+            getPlayer(p).getData().addStat("discovery.mobs", 1);
         }
 
         if (bd instanceof Player) {
@@ -243,14 +359,17 @@ public class SkillDiscovery extends SimpleSkill<SkillDiscovery.Config> {
         Discovery<String> d = getPlayer(p).getData().getSeenBiomes();
         if (d.isNewDiscovery(e.getKey().toString())) {
             xp(p, getConfig().discoverBiomeXP);
+            getPlayer(p).getData().addStat("discovery.biomes", 1);
         }
     }
 
     @Override
     public void onTick() {
         if (!this.isEnabled()) return;
-        for (Player i : Bukkit.getOnlinePlayers()) {
+        for (AdaptPlayer adaptPlayer : getServer().getOnlineAdaptPlayerSnapshot()) {
+            Player i = adaptPlayer.getPlayer();
             if (shouldReturnForPlayer(i)) continue;
+            checkStatTrackers(adaptPlayer);
             seeTargetBlock(i);
         }
     }
@@ -274,22 +393,39 @@ public class SkillDiscovery extends SimpleSkill<SkillDiscovery.Config> {
 
     @NoArgsConstructor
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Discovery skill.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Biome XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverBiomeXP = 15;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Potion XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverPotionXP = 36;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Entity Type XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverEntityTypeXP = 125;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Food Type XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverFoodTypeXP = 75;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Player XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverPlayerXP = 125;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Environment XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverEnvironmentXP = 750;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover World XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverWorldXP = 750;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Enchant Max XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverEnchantMaxXP = 250;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Enchant Level XPMultiplier for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverEnchantLevelXPMultiplier = 52;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Enchant Base XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverEnchantBaseXP = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Item Base XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverItemBaseXP = 10;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Recipe Base XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverRecipeBaseXP = 15;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Item Value XPMultiplier for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverItemValueXPMultiplier = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Block Base XP for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverBlockBaseXP = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Discover Block Value XPMultiplier for the Discovery skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double discoverBlockValueXPMultiplier = 0.333;
     }
 }

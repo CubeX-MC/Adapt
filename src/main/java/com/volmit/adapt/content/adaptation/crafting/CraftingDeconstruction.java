@@ -19,10 +19,12 @@
 package com.volmit.adapt.content.adaptation.crafting;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdvancementSpec;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
 import com.volmit.adapt.util.SoundPlayer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -41,25 +43,38 @@ import org.bukkit.util.RayTraceResult;
 import java.util.*;
 
 public class CraftingDeconstruction extends SimpleAdaptation<CraftingDeconstruction.Config> {
-    private final List<Integer> holds = new ArrayList<>();
-
     public CraftingDeconstruction() {
         super("crafting-deconstruction");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("crafting", "deconstruction", "description"));
-        setDisplayName(Localizer.dLocalize("crafting", "deconstruction", "name"));
+        setDescription(Localizer.dLocalize("crafting.deconstruction.description"));
+        setDisplayName(Localizer.dLocalize("crafting.deconstruction.name"));
         setIcon(Material.SHEARS);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(1);
         setInterval(5590);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        AdvancementSpec deconstruction5k = AdvancementSpec.challenge(
+                "challenge_crafting_decon_5k",
+                Material.IRON_INGOT,
+                Localizer.dLocalize("advancement.challenge_crafting_decon_5k.title"),
+                Localizer.dLocalize("advancement.challenge_crafting_decon_5k.description")
+        );
+        AdvancementSpec deconstruction200 = AdvancementSpec.challenge(
+                "challenge_crafting_decon_200",
+                Material.SHEARS,
+                Localizer.dLocalize("advancement.challenge_crafting_decon_200.title"),
+                Localizer.dLocalize("advancement.challenge_crafting_decon_200.description")
+        ).withChild(deconstruction5k);
+        registerAdvancementSpec(deconstruction200);
+        registerStatTracker(deconstruction200.statTracker("crafting.deconstruction.items-deconstructed", 200, 300));
+        registerStatTracker(deconstruction5k.statTracker("crafting.deconstruction.items-deconstructed", 5000, 1000));
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("crafting", "deconstruction", "lore1"));
-        v.addLore(C.GREEN + Localizer.dLocalize("crafting", "deconstruction", "lore2"));
+        v.addLore(C.GREEN + Localizer.dLocalize("crafting.deconstruction.lore1"));
+        v.addLore(C.GREEN + Localizer.dLocalize("crafting.deconstruction.lore2"));
     }
 
     public ItemStack getDeconstructionOffering(ItemStack forStuff) {
@@ -151,7 +166,8 @@ public class CraftingDeconstruction extends SimpleAdaptation<CraftingDeconstruct
             itemEntity.setItemStack(offering);
             spw.play(itemEntity.getLocation(), Sound.BLOCK_BASALT_BREAK, 1F, 0.2f);
             spw.play(itemEntity.getLocation(), Sound.BLOCK_BEEHIVE_SHEAR, 1F, 0.7f);
-            getSkill().xp(player, getValue(offering));
+            xp(player, getValue(offering), "deconstruct");
+            getPlayer(player).getData().addStat("crafting.deconstruction.items-deconstructed", 1);
 
             // Damage the shears
             Damageable damageable = (Damageable) mainHandItem.getItemMeta();
@@ -184,11 +200,17 @@ public class CraftingDeconstruction extends SimpleAdaptation<CraftingDeconstruct
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Deconstruct blocks and items into salvageable base components using shears.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 9;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 8;
-        double costFactor = 1.355;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 1.0;
     }
 }

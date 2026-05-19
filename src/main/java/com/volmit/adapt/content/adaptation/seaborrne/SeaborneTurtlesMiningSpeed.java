@@ -19,11 +19,15 @@
 package com.volmit.adapt.content.adaptation.seaborrne;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
-import com.volmit.adapt.util.J;
 import com.volmit.adapt.util.Localizer;
-import com.volmit.adapt.util.reflect.enums.PotionEffectTypes;
+import com.volmit.adapt.util.config.ConfigDescription;
+import com.volmit.adapt.util.reflect.registries.PotionEffectTypes;
 import lombok.NoArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -35,28 +39,48 @@ public class SeaborneTurtlesMiningSpeed extends SimpleAdaptation<SeaborneTurtles
     public SeaborneTurtlesMiningSpeed() {
         super("seaborne-turtles-mining-speed");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("seaborn", "haste", "description"));
-        setDisplayName(Localizer.dLocalize("seaborn", "haste", "name"));
-        setIcon(Material.GOLDEN_HORSE_ARMOR);
+        setDescription(Localizer.dLocalize("seaborn.haste.description"));
+        setDisplayName(Localizer.dLocalize("seaborn.haste.name"));
+        setIcon(Material.PRISMARINE_SHARD);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(3000);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_PICKAXE)
+                .key("challenge_seaborne_mining_2500")
+                .title(Localizer.dLocalize("advancement.challenge_seaborne_mining_2500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_seaborne_mining_2500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_PICKAXE)
+                        .key("challenge_seaborne_mining_25k")
+                        .title(Localizer.dLocalize("advancement.challenge_seaborne_mining_25k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_seaborne_mining_25k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_seaborne_mining_2500", "seaborne.turtles-mining.blocks-underwater", 2500, 300);
+        registerMilestone("challenge_seaborne_mining_25k", "seaborne.turtles-mining.blocks-underwater", 25000, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("seaborn", "haste", "lore1"));
+        v.addLore(C.GRAY + Localizer.dLocalize("seaborn.haste.lore1"));
     }
 
 
     @Override
     public void onTick() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (com.volmit.adapt.api.world.AdaptPlayer adaptPlayer : getServer().getOnlineAdaptPlayerSnapshot()) {
+            Player player = adaptPlayer.getPlayer();
             if (player.isInWater() && hasAdaptation(player)) {
                 if (player.getLocation().getBlock().isLiquid()) {
-                    J.s(() -> player.addPotionEffect(new PotionEffect(PotionEffectTypes.FAST_DIGGING, 62, 1, false, false)));
+                    player.addPotionEffect(new PotionEffect(PotionEffectTypes.FAST_DIGGING, 62, 1, false, false));
+                    getPlayer(player).getData().addStat("seaborne.turtles-mining.blocks-underwater", 1);
                 }
             }
         }
@@ -73,12 +97,19 @@ public class SeaborneTurtlesMiningSpeed extends SimpleAdaptation<SeaborneTurtles
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Gain haste while mining underwater.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 15;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

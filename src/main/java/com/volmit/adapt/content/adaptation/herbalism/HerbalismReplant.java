@@ -19,9 +19,16 @@
 package com.volmit.adapt.content.adaptation.herbalism;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
+import com.volmit.adapt.api.world.PlayerAdaptation;
+import com.volmit.adapt.api.world.PlayerSkillLine;
 import com.volmit.adapt.content.skill.SkillHerbalism;
 import com.volmit.adapt.util.*;
-import com.volmit.adapt.util.reflect.enums.Particles;
+import com.volmit.adapt.util.reflect.registries.Particles;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -41,19 +48,37 @@ public class HerbalismReplant extends SimpleAdaptation<HerbalismReplant.Config> 
     public HerbalismReplant() {
         super("herbalism-replant");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("herbalism", "replant", "description"));
-        setDisplayName(Localizer.dLocalize("herbalism", "replant", "name"));
+        setDescription(Localizer.dLocalize("herbalism.replant.description"));
+        setDisplayName(Localizer.dLocalize("herbalism.replant.name"));
         setIcon(Material.PUMPKIN_SEEDS);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(6090);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WHEAT_SEEDS)
+                .key("challenge_herbalism_replant_500")
+                .title(Localizer.dLocalize("advancement.challenge_herbalism_replant_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_herbalism_replant_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.COMPOSTER)
+                        .key("challenge_herbalism_replant_25k")
+                        .title(Localizer.dLocalize("advancement.challenge_herbalism_replant_25k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_herbalism_replant_25k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_herbalism_replant_500", "herbalism.replant.crops-replanted", 500, 300);
+        registerMilestone("challenge_herbalism_replant_25k", "herbalism.replant.crops-replanted", 25000, 1000);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + getRadius(level) + C.GRAY + Localizer.dLocalize("herbalism", "replant", "lore1"));
+        v.addLore(C.GREEN + "+ " + getRadius(level) + C.GRAY + Localizer.dLocalize("herbalism.replant.lore1"));
     }
 
 
@@ -114,7 +139,7 @@ public class HerbalismReplant extends SimpleAdaptation<HerbalismReplant.Config> 
                 }
                 spw.play(p.getLocation(), Sound.ITEM_SHOVEL_FLATTEN, 1f, 0.66f);
                 spw.play(p.getLocation(), Sound.BLOCK_BAMBOO_SAPLING_BREAK, 1f, 0.66f);
-                if (getConfig().showParticles) {
+                if (areParticlesEnabled()) {
                     p.spawnParticle(Particles.VILLAGER_HAPPY, p.getLocation().clone().add(0.5, 0.5, 0.5), getLevel(p) * 3, 0.3 * getLevel(p), 0.3 * getLevel(p), 0.3 * getLevel(p), 0.9);
                 }
             } else {
@@ -125,13 +150,15 @@ public class HerbalismReplant extends SimpleAdaptation<HerbalismReplant.Config> 
 
     private void hit(Player p, Block b) {
         if (b != null && b.getBlockData() instanceof Ageable aa && hasAdaptation(p)) {
-            if (aa.getAge() == 0) {
+            if (aa.getAge() != aa.getMaximumAge()) {
                 return;
             }
 
             xp(p, b.getLocation().clone().add(0.5, 0.5, 0.5), ((SkillHerbalism.Config) getSkill().getConfig()).harvestPerAgeXP * aa.getAge());
             xp(p, b.getLocation().clone().add(0.5, 0.5, 0.5), ((SkillHerbalism.Config) getSkill().getConfig()).plantCropSeedsXP);
-            if (getPlayer(p).getData().getSkillLines().get("herbalism").getAdaptations().get("herbalism-drop-to-inventory") != null && getPlayer(p).getData().getSkillLines().get("herbalism").getAdaptations().get("herbalism-drop-to-inventory").getLevel() > 0) {
+            PlayerSkillLine line = getPlayer(p).getData().getSkillLineNullable("herbalism");
+            PlayerAdaptation adaptation = line != null ? line.getAdaptation("herbalism-drop-to-inventory") : null;
+            if (adaptation != null && adaptation.getLevel() > 0) {
                 Collection<ItemStack> items = b.getDrops();
                 SoundPlayer sp = SoundPlayer.of(p);
                 for (ItemStack i : items) {
@@ -153,6 +180,7 @@ public class HerbalismReplant extends SimpleAdaptation<HerbalismReplant.Config> 
 
             getPlayer(p).getData().addStat("harvest.blocks", 1);
             getPlayer(p).getData().addStat("harvest.planted", 1);
+            getPlayer(p).getData().addStat("herbalism.replant.crops-replanted", 1);
 
             if (M.r(1D / (double) getLevel(p))) {
                 SoundPlayer spw = SoundPlayer.of(p.getWorld());
@@ -178,18 +206,31 @@ public class HerbalismReplant extends SimpleAdaptation<HerbalismReplant.Config> 
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Right-click a crop with a hoe to harvest and replant it.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Herbalism Replant adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 4;
-        double costFactor = 2.325;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.95;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Lvl1 for the Herbalism Replant adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double cooldownLvl1 = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Base Cooldown for the Herbalism Replant adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double baseCooldown = 30;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Factor for the Herbalism Replant adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double cooldownFactor = 30;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Bonus Cooldown for the Herbalism Replant adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double bonusCooldown = 20;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Radius Sub for the Herbalism Replant adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int radiusSub = 1;
     }
 }

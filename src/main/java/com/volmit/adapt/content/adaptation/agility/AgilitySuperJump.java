@@ -19,9 +19,14 @@
 package com.volmit.adapt.content.adaptation.agility;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
-import com.volmit.adapt.util.reflect.enums.Particles;
-import com.volmit.adapt.util.reflect.enums.PotionEffectTypes;
+import com.volmit.adapt.util.reflect.registries.Particles;
+import com.volmit.adapt.util.reflect.registries.PotionEffectTypes;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -44,8 +49,8 @@ public class AgilitySuperJump extends SimpleAdaptation<AgilitySuperJump.Config> 
     public AgilitySuperJump() {
         super("agility-super-jump");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("agility", "superjump", "description"));
-        setDisplayName(Localizer.dLocalize("agility", "superjump", "name"));
+        setDescription(Localizer.dLocalize("agility.super_jump.description"));
+        setDisplayName(Localizer.dLocalize("agility.super_jump.name"));
         setIcon(Material.LEATHER_BOOTS);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
@@ -53,6 +58,24 @@ public class AgilitySuperJump extends SimpleAdaptation<AgilitySuperJump.Config> 
         setInitialCost(getConfig().initialCost);
         setInterval(9999);
         lastJump = new HashMap<>();
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.LEATHER_BOOTS)
+                .key("challenge_agility_super_jump_100")
+                .title(Localizer.dLocalize("advancement.challenge_agility_super_jump_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_agility_super_jump_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.GOLDEN_BOOTS)
+                        .key("challenge_agility_super_jump_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_agility_super_jump_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_agility_super_jump_5k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_agility_super_jump_100", "agility.super-jump.jumps", 100, 300);
+        registerMilestone("challenge_agility_super_jump_5k", "agility.super-jump.jumps", 5000, 1500);
     }
 
     private double getJumpHeight(int level) {
@@ -61,8 +84,8 @@ public class AgilitySuperJump extends SimpleAdaptation<AgilitySuperJump.Config> 
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Form.pc(getJumpHeight(level), 0) + C.GRAY + " " + Localizer.dLocalize("agility", "superjump", "lore1"));
-        v.addLore(C.LIGHT_PURPLE + " " + Localizer.dLocalize("agility", "superjump", "lore2"));
+        v.addLore(C.GREEN + "+ " + Form.pc(getJumpHeight(level), 0) + C.GRAY + " " + Localizer.dLocalize("agility.super_jump.lore1"));
+        v.addLore(C.LIGHT_PURPLE + " " + Localizer.dLocalize("agility.super_jump.lore2"));
 
     }
 
@@ -118,11 +141,12 @@ public class AgilitySuperJump extends SimpleAdaptation<AgilitySuperJump.Config> 
                     SoundPlayer spw = SoundPlayer.of(p.getWorld());
                     spw.play(p.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1.25f, 0.7f);
                     spw.play(p.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1.25f, 1.7f);
-                    if (getConfig().showParticles) {
+                    if (areParticlesEnabled()) {
                         p.getWorld().spawnParticle(Particles.BLOCK_CRACK, p.getLocation().clone().add(0, 0.3, 0), 15, 0.1, 0.8, 0.1, 0.1, p.getLocation().getBlock().getRelative(BlockFace.DOWN).getBlockData());
                     }
                     p.setVelocity(p.getVelocity().setY(getJumpHeight(getLevel(p))));
                     lastJump.put(p, M.ms());
+                    getPlayer(p).getData().addStat("agility.super-jump.jumps", 1);
                 }
             }
         }
@@ -144,15 +168,25 @@ public class AgilitySuperJump extends SimpleAdaptation<AgilitySuperJump.Config> 
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Sneak and jump for exceptional height advantage.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Agility Super Jump adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.55;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Base Jump Multiplier for the Agility Super Jump adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double baseJumpMultiplier = 0.23;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Jump Level Multiplier for the Agility Super Jump adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double jumpLevelMultiplier = 0.23;
     }
 }

@@ -22,6 +22,7 @@ import com.volmit.adapt.Adapt;
 import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.Component;
 import com.volmit.adapt.api.adaptation.Adaptation;
+import com.volmit.adapt.api.adaptation.SimpleAdaptation;
 import com.volmit.adapt.api.advancement.AdaptAdvancement;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
 import com.volmit.adapt.api.tick.Ticked;
@@ -31,13 +32,18 @@ import com.volmit.adapt.api.world.PlayerData;
 import com.volmit.adapt.api.xp.XP;
 import com.volmit.adapt.content.gui.SkillsGui;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.collection.KList;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 public interface Skill<T> extends Ticked, Component {
     AdaptAdvancement buildAdvancements();
@@ -58,17 +64,93 @@ public interface Skill<T> extends Ticked, Component {
 
     String getDescription();
 
-    List<AdaptRecipe> getRecipes();
+    KList<AdaptRecipe> getRecipes();
 
     void registerAdaptation(Adaptation<?> a);
 
     void registerStatTracker(AdaptStatTracker tracker);
 
-    List<AdaptStatTracker> getStatTrackers();
+    KList<AdaptStatTracker> getStatTrackers();
+
+    @Override
+    default boolean areParticlesEnabled() {
+        if (!Component.super.areParticlesEnabled()) {
+            return false;
+        }
+
+        AdaptConfig.Effects effects = AdaptConfig.get().getEffects();
+        if (effects != null && effects.getSkillParticleOverrides() != null && !effects.getSkillParticleOverrides().isEmpty()) {
+            String key = getName();
+            Boolean override = effects.getSkillParticleOverrides().get(key);
+            if (override == null && key != null) {
+                override = effects.getSkillParticleOverrides().get(key.toLowerCase(Locale.ROOT));
+            }
+            if (override != null && !override) {
+                return false;
+            }
+        }
+
+        Object config = getConfig();
+        if (config != null) {
+            Boolean directToggle = readBooleanField(config, "showParticles");
+            if (directToggle != null && !directToggle) {
+                return false;
+            }
+
+            Boolean genericToggle = readBooleanField(config, "showParticleEffects");
+            if (genericToggle != null && !genericToggle) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    default boolean areSoundsEnabled() {
+        if (!Component.super.areSoundsEnabled()) {
+            return false;
+        }
+
+        Object config = getConfig();
+        if (config != null) {
+            Boolean directToggle = readBooleanField(config, "showSounds");
+            if (directToggle != null && !directToggle) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static Boolean readBooleanField(Object source, String fieldName) {
+        if (source == null || fieldName == null || fieldName.isBlank()) {
+            return null;
+        }
+
+        Class<?> current = source.getClass();
+        while (current != null) {
+            try {
+                Field field = current.getDeclaredField(fieldName);
+                field.setAccessible(true);
+                Object value = field.get(source);
+                if (value instanceof Boolean bool) {
+                    return bool;
+                }
+                return null;
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+
+        return null;
+    }
 
     default void checkStatTrackers(AdaptPlayer player) {
         if (!this.isEnabled()) {
-            this.unregister();
+            return;
         }
         if (!player.getPlayer().getClass().getSimpleName().equals("CraftPlayer")) {
             return;
@@ -84,15 +166,26 @@ public interface Skill<T> extends Ticked, Component {
                 xp(player.getPlayer(), i.getReward());
             }
         }
+
+        for (Adaptation<?> adaptation : getAdaptations()) {
+            if (!(adaptation instanceof SimpleAdaptation<?> sa)) continue;
+            if (!adaptation.isEnabled()) continue;
+            for (AdaptStatTracker tracker : sa.getStatTrackers()) {
+                if (!d.isGranted(tracker.getAdvancement()) && d.getStat(tracker.getStat()) >= tracker.getGoal()) {
+                    player.getAdvancementHandler().grant(tracker.getAdvancement());
+                    xp(player.getPlayer(), tracker.getReward());
+                }
+            }
+        }
     }
 
-    List<Adaptation<?>> getAdaptations();
+    KList<Adaptation<?>> getAdaptations();
 
     C getColor();
 
     double getMinXp();
 
-    void onRegisterAdvancements(List<AdaptAdvancement> advancements);
+    void onRegisterAdvancements(KList<AdaptAdvancement> advancements);
 
     default boolean hasBlacklistPermission(Player p, Skill<?> s) {
         if (p.isOp()) { // If the player is an operator, bypass the permission check
@@ -105,21 +198,21 @@ public interface Skill<T> extends Ticked, Component {
 
     default String getDisplayName() {
         if (!this.isEnabled()) {
-            this.unregister();
+            return C.DARK_GRAY + Form.capitalize(getName());
         }
         return C.RESET + "" + C.BOLD + getColor().toString() + getEmojiName() + " " + Form.capitalize(getName());
     }
 
     default String getShortName() {
         if (!this.isEnabled()) {
-            this.unregister();
+            return C.DARK_GRAY + Form.capitalize(getName());
         }
         return C.RESET + "" + C.BOLD + getColor().toString() + getEmojiName();
     }
 
     default String getDisplayName(int level) {
         if (!this.isEnabled()) {
-            this.unregister();
+            return C.DARK_GRAY + Form.capitalize(getName());
         }
         return getDisplayName() + C.RESET + " " + C.UNDERLINE + C.WHITE + level + C.RESET;
     }
@@ -129,19 +222,33 @@ public interface Skill<T> extends Ticked, Component {
     }
 
     default void xp(Player p, double xp) {
+        xp(p, xp, null);
+    }
+
+    default void xp(Player p, double xp, String rewardKey) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!p.getClass().getSimpleName().equals("CraftPlayer")) {
             return;
         }
-        xp(p, p.getLocation(), xp);
+        xp(p, p.getLocation(), xp, rewardKey);
 
     }
 
     default void xp(Player p, Location at, double xp) {
+        xp(p, at, xp, null);
+    }
+
+    default void xp(Player p, Location at, double xp, String rewardKey) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!p.getClass().getSimpleName().equals("CraftPlayer")) {
             return;
         }
         try {
-            XP.xp(p, this, xp);
+            XP.xp(p, this, xp, rewardKey);
             if (xp > 50) {
                 vfxXP(p, at, (int) xp);
             }
@@ -152,11 +259,18 @@ public interface Skill<T> extends Ticked, Component {
     }
 
     default void xpS(Player p, Location at, double xp) {
+        xpS(p, at, xp, null);
+    }
+
+    default void xpS(Player p, Location at, double xp, String rewardKey) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!p.getClass().getSimpleName().equals("CraftPlayer")) {
             return;
         }
         try {
-            XP.xpSilent(p, this, xp);
+            XP.xpSilent(p, this, xp, rewardKey);
             if (xp > 50) {
                 vfxXP(p, at, (int) xp);
             }
@@ -167,11 +281,18 @@ public interface Skill<T> extends Ticked, Component {
     }
 
     default void xpSilent(Player p, double xp) {
+        xpSilent(p, xp, null);
+    }
+
+    default void xpSilent(Player p, double xp, String rewardKey) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!p.getClass().getSimpleName().equals("CraftPlayer")) {
             return;
         }
         try {
-            XP.xpSilent(p, this, xp);
+            XP.xpSilent(p, this, xp, rewardKey);
         } catch (
                 Exception ignored) { // Player was Given XP (Likely Teleportation) before i can see it because some plugin has higher priority than me and moves a player. so im not going to throw an error, as i know why it's happening.
             Adapt.verbose("Player was Given XP (Likely Teleportation) before i can see it because some plugin has higher priority than me and moves a player. so im not going to throw an error, as i know why it's happening.");
@@ -185,6 +306,9 @@ public interface Skill<T> extends Ticked, Component {
     }
 
     default void knowledge(Player p, long k) {
+        if (!this.isEnabled()) {
+            return;
+        }
         XP.knowledge(p, this, k);
     }
 
@@ -198,14 +322,19 @@ public interface Skill<T> extends Ticked, Component {
     }
 
     default void openGui(Player player) {
+        openGui(player, 0);
+    }
+
+    default void openGui(Player player, int page) {
         if (!this.isEnabled()) {
-            this.unregister();
+            return;
         }
         if (!player.getClass().getSimpleName().equals("CraftPlayer")) {
             return;
         }
         if (!Bukkit.isPrimaryThread()) {
-            J.s(() -> openGui(player));
+            int targetPage = page;
+            J.s(() -> openGui(player, targetPage));
             return;
         }
 
@@ -213,46 +342,113 @@ public interface Skill<T> extends Ticked, Component {
         spw.play(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1.1f, 1.255f);
         spw.play(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 0.7f, 1.455f);
         spw.play(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 0.3f, 1.855f);
-        Window w = new UIWindow(player);
-        w.setTag("skill/" + getName());
-        w.setDecorator((window, position, row) -> new UIElement("bg")
-                .setName(" ")
-                .setMaterial(new MaterialBlock(Material.BLACK_STAINED_GLASS_PANE))
-                .setModel(CustomModel.get(Material.BLACK_STAINED_GLASS_PANE, "snippets", "gui", "background")));
 
-        int ind = 0;
-
-        for (Adaptation<?> i : getAdaptations()) {
-            if (i.hasBlacklistPermission(player, i)) {
+        List<Adaptation<?>> visibleAdaptations = new ArrayList<>();
+        for (Adaptation<?> adaptation : getAdaptations()) {
+            if (!adaptation.isEnabled()) {
                 continue;
             }
-            int pos = w.getPosition(ind);
-            int row = w.getRow(ind);
-            int lvl = getPlayer(player).getData().getSkillLine(getName()).getAdaptationLevel(i.getName());
-            w.setElement(pos, row, new UIElement("ada-" + i.getName())
-                    .setMaterial(new MaterialBlock(i.getIcon()))
-                    .setModel(i.getModel())
-                    .setName(i.getDisplayName(lvl))
-                    .addLore(Form.wrapWordsPrefixed(i.getDescription(), "" + C.GRAY, 45)) // Set to the actual Description
-                    .addLore(lvl == 0 ? (C.DARK_GRAY + Localizer.dLocalize("snippets", "gui", "notlearned")) : (C.GRAY + Localizer.dLocalize("snippets", "gui", "level") + " " + C.WHITE + Form.toRoman(lvl)))
-                    .setProgress(1D)
-                    .onLeftClick((e) -> i.openGui(player)));
-            ind++;
+            if (!adaptation.getSkill().isEnabled()) {
+                continue;
+            }
+            if (adaptation.hasBlacklistPermission(player, adaptation)) {
+                continue;
+            }
+            visibleAdaptations.add(adaptation);
+        }
+        visibleAdaptations.sort(Comparator.comparing(adaptation -> normalizeSortKey(adaptation.getDisplayName())));
+
+        boolean reserveNavigation = AdaptConfig.get().isGuiBackButton();
+        GuiLayout.PagePlan plan = GuiLayout.plan(visibleAdaptations.size(), reserveNavigation);
+        int currentPage = GuiLayout.clampPage(page, plan.pageCount());
+        int start = currentPage * plan.itemsPerPage();
+        int end = Math.min(visibleAdaptations.size(), start + plan.itemsPerPage());
+
+        Window w = new UIWindow(player);
+        GuiTheme.apply(w, "skill/" + getName());
+        w.setViewportHeight(plan.rows());
+
+        if (visibleAdaptations.isEmpty()) {
+            w.setElement(0, 0, new UIElement("ada-empty")
+                    .setMaterial(new MaterialBlock(Material.PAPER))
+                    .setName(C.GRAY + "No adaptations available"));
+        } else {
+            List<GuiEffects.Placement> reveal = new ArrayList<>();
+            for (int row = 0; row < plan.contentRows(); row++) {
+                int rowStart = start + (row * GuiLayout.WIDTH);
+                if (rowStart >= end) {
+                    break;
+                }
+
+                int rowCount = Math.min(GuiLayout.WIDTH, end - rowStart);
+                for (int i = 0; i < rowCount; i++) {
+                    Adaptation<?> adaptation = visibleAdaptations.get(rowStart + i);
+                    int lvl = getPlayer(player).getData().getSkillLine(getName()).getAdaptationLevel(adaptation.getName());
+                    int pos = GuiLayout.centeredPosition(i, rowCount);
+                    Element element = new UIElement("ada-" + adaptation.getName())
+                            .setMaterial(new MaterialBlock(adaptation.getIcon()))
+                            .setModel(adaptation.getModel())
+                            .setName(adaptation.getDisplayName(lvl))
+                            .addLore(Form.wrapWordsPrefixed(adaptation.getDescription(), "" + C.GRAY, 45))
+                            .addLore(lvl == 0 ? (C.DARK_GRAY + Localizer.dLocalize("snippets.gui.not_learned")) : (C.GRAY + Localizer.dLocalize("snippets.gui.level") + " " + C.WHITE + Form.toRoman(lvl)))
+                            .setProgress(1D)
+                            .onLeftClick((e) -> adaptation.openGui(player));
+                    reveal.add(new GuiEffects.Placement(pos, row, element));
+                }
+            }
+            GuiEffects.applyReveal(w, reveal);
         }
 
-        if (AdaptConfig.get().isGuiBackButton()) {
-            int backPos = w.getResolution().getWidth() - 1;
-            int backRow = w.getViewportHeight() - 1;
-            if (w.getElement(backPos, backRow) != null) backRow++;
-            w.setElement(backPos, backRow, new UIElement("back")
-                    .setMaterial(new MaterialBlock(Material.RED_BED))
-                    .setModel(CustomModel.get(Material.RED_BED, "snippets", "gui", "back"))
-                    .setName("" + C.RESET + C.GRAY + Localizer.dLocalize("snippets", "gui", "back"))
-                    .onLeftClick((e) -> onGuiClose(player, true)));
+        if (plan.hasNavigationRow()) {
+            int navRow = plan.rows() - 1;
+            int jumpPages = 5;
+            int jumpBack = Math.max(0, currentPage - jumpPages);
+            int jumpForward = Math.min(plan.pageCount() - 1, currentPage + jumpPages);
+            if (currentPage > 0) {
+                w.setElement(-4, navRow, new UIElement("skill-prev")
+                        .setMaterial(new MaterialBlock(Material.ARROW))
+                        .setName(C.WHITE + "Previous")
+                        .addLore(C.GRAY + "Right click: jump -" + jumpPages + " pages")
+                        .onLeftClick((e) -> openGui(player, currentPage - 1))
+                        .onRightClick((e) -> openGui(player, jumpBack)));
+                w.setElement(-3, navRow, new UIElement("skill-first")
+                        .setMaterial(new MaterialBlock(Material.LECTERN))
+                        .setName(C.GRAY + "First")
+                        .onLeftClick((e) -> openGui(player, 0)));
+            }
+            if (currentPage < plan.pageCount() - 1) {
+                w.setElement(4, navRow, new UIElement("skill-next")
+                        .setMaterial(new MaterialBlock(Material.ARROW))
+                        .setName(C.WHITE + "Next")
+                        .addLore(C.GRAY + "Right click: jump +" + jumpPages + " pages")
+                        .onLeftClick((e) -> openGui(player, currentPage + 1))
+                        .onRightClick((e) -> openGui(player, jumpForward)));
+                w.setElement(3, navRow, new UIElement("skill-last")
+                        .setMaterial(new MaterialBlock(Material.LECTERN))
+                        .setName(C.GRAY + "Last")
+                        .onLeftClick((e) -> openGui(player, plan.pageCount() - 1)));
+            }
+
+            int from = visibleAdaptations.isEmpty() ? 0 : (start + 1);
+            int to = visibleAdaptations.isEmpty() ? 0 : end;
+            w.setElement(-1, navRow, new UIElement("skill-page-info")
+                    .setMaterial(new MaterialBlock(Material.PAPER))
+                    .setName(C.AQUA + "Page " + (currentPage + 1) + "/" + plan.pageCount())
+                    .addLore(C.GRAY + "Showing " + from + "-" + to + " of " + visibleAdaptations.size())
+                    .setProgress(1D));
+
+            if (AdaptConfig.get().isGuiBackButton()) {
+                w.setElement(0, navRow, new UIElement("back")
+                        .setMaterial(new MaterialBlock(Material.ARROW))
+                        .setName("" + C.RESET + C.GRAY + Localizer.dLocalize("snippets.gui.back"))
+                        .onLeftClick((e) -> onGuiClose(player, true)));
+            }
+
         }
 
         AdaptPlayer a = Adapt.instance.getAdaptServer().getPlayer(player);
-        w.setTitle(getDisplayName(a.getSkillLine(getName()).getLevel()) + " " + Form.pc(XP.getLevelProgress(a.getSkillLine(getName()).getXp())) + " (" + Form.f((int) XP.getXpUntilLevelUp(a.getSkillLine(getName()).getXp())) + Localizer.dLocalize("snippets", "gui", "xp") + " " + (a.getSkillLine(getName()).getLevel() + 1) + ")");
+        String pageSuffix = plan.pageCount() > 1 ? " [" + (currentPage + 1) + "/" + plan.pageCount() + "]" : "";
+        w.setTitle(getDisplayName(a.getSkillLine(getName()).getLevel()) + " " + Form.pc(XP.getLevelProgress(a.getSkillLine(getName()).getXp())) + " (" + Form.f((int) XP.getXpUntilLevelUp(a.getSkillLine(getName()).getXp())) + Localizer.dLocalize("snippets.gui.xp") + " " + (a.getSkillLine(getName()).getLevel() + 1) + ")" + pageSuffix);
         w.onClosed((vv) -> J.s(() -> onGuiClose(player, !AdaptConfig.get().isEscClosesAllGuis())));
         w.open();
         Adapt.instance.getGuiLeftovers().put(player.getUniqueId().toString(), w);
@@ -268,5 +464,14 @@ public interface Skill<T> extends Ticked, Component {
         } else {
             Adapt.instance.getGuiLeftovers().remove(player.getUniqueId().toString());
         }
+    }
+
+    private static String normalizeSortKey(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        String normalized = C.stripColor(value).toLowerCase(Locale.ROOT).trim();
+        return normalized.replaceFirst("^[^\\p{L}\\p{N}]+", "");
     }
 }

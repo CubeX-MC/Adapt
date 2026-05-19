@@ -19,8 +19,13 @@
 package com.volmit.adapt.content.adaptation.pickaxe;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
-import com.volmit.adapt.util.reflect.enums.Particles;
+import com.volmit.adapt.util.config.ConfigDescription;
+import com.volmit.adapt.util.reflect.registries.Particles;
 import lombok.NoArgsConstructor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -37,20 +42,29 @@ public class PickaxeChisel extends SimpleAdaptation<PickaxeChisel.Config> {
     public PickaxeChisel() {
         super("pickaxe-chisel");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("pickaxe", "chisel", "description"));
-        setDisplayName(Localizer.dLocalize("pickaxe", "chisel", "name"));
+        setDescription(Localizer.dLocalize("pickaxe.chisel.description"));
+        setDisplayName(Localizer.dLocalize("pickaxe.chisel.name"));
         setIcon(Material.IRON_NUGGET);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setInterval(7433);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_PICKAXE)
+                .key("challenge_pickaxe_chisel_500")
+                .title(Localizer.dLocalize("advancement.challenge_pickaxe_chisel_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_pickaxe_chisel_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_pickaxe_chisel_500", "pickaxe.chisel.extra-ores", 500, 400);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Form.pc(getDropChance(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("pickaxe", "chisel", "lore1"));
-        v.addLore(C.RED + "- " + getDamagePerBlock(getLevelPercent(level)) + C.GRAY + " " + Localizer.dLocalize("pickaxe", "chisel", "lore2"));
+        v.addLore(C.GREEN + "+ " + Form.pc(getDropChance(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("pickaxe.chisel.lore1"));
+        v.addLore(C.RED + "- " + getDamagePerBlock(getLevelPercent(level)) + C.GRAY + " " + Localizer.dLocalize("pickaxe.chisel.lore2"));
     }
 
     private int getCooldownTime(double levelPercent) {
@@ -97,14 +111,15 @@ public class PickaxeChisel extends SimpleAdaptation<PickaxeChisel.Config> {
 
                 ItemStack is = getDropFor(b);
                 if (M.r(getDropChance(getLevelPercent(p)))) {
-                    if (getConfig().showParticles) {
+                    if (areParticlesEnabled()) {
                         e.getClickedBlock().getWorld().spawnParticle(Particles.ITEM_CRACK, c, 14, 0.10, 0.01, 0.01, 0.1, is);
                     }
                     spw.play(p.getLocation(), Sound.BLOCK_DEEPSLATE_PLACE, 1.25f, 0.787f);
                     spw.play(p.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_PLACE, 0.55f, 1.89f);
                     e.getClickedBlock().getWorld().dropItemNaturally(c.clone().subtract(p.getLocation().getDirection().clone().multiply(0.1)), is);
+                    getPlayer(p).getData().addStat("pickaxe.chisel.extra-ores", 1);
                 } else {
-                    if (getConfig().showParticles) {
+                    if (areParticlesEnabled()) {
                         e.getClickedBlock().getWorld().spawnParticle(Particles.ITEM_CRACK, c, 3, 0.01, 0.01, 0.01, 0.1, is);
                         e.getClickedBlock().getWorld().spawnParticle(Particles.BLOCK_CRACK, c, 9, 0.1, 0.1, 0.1, e.getClickedBlock().getBlockData());
                     }
@@ -152,19 +167,33 @@ public class PickaxeChisel extends SimpleAdaptation<PickaxeChisel.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Right-click ores to chisel extra ore at a severe durability cost.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Show Particles for the Pickaxe Chisel adaptation.", impact = "True enables this behavior and false disables it.")
         boolean showParticles = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Time for the Pickaxe Chisel adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int cooldownTime = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Drop Chance Base for the Pickaxe Chisel adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double dropChanceBase = 0.07;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Drop Chance Factor for the Pickaxe Chisel adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double dropChanceFactor = 0.22;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Break Chance for the Pickaxe Chisel adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double breakChance = 0.25;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Per Block Base for the Pickaxe Chisel adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damagePerBlockBase = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Damage Factor Inverse Multiplier for the Pickaxe Chisel adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double damageFactorInverseMultiplier = 2;
     }
 }

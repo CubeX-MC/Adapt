@@ -18,30 +18,36 @@
 
 package com.volmit.adapt.api.tick;
 
-import com.volmit.adapt.util.BurstExecutor;
 import com.volmit.adapt.util.J;
-import com.volmit.adapt.util.MultiBurst;
+import com.volmit.adapt.util.collection.KList;
 
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Ticker {
-    private final List<Ticked> ticklist;
-    private final List<Ticked> newTicks;
-    private final List<String> removeTicks;
+    private final KList<Ticked> ticklist;
+    private final KList<Ticked> newTicks;
+    private final KList<String> removeTicks;
+    private final Map<String, TickMetric> metrics;
+    private final AtomicLong windowStartMs;
     private volatile boolean ticking;
 
     public Ticker() {
-        this.ticklist = new ArrayList<>(4096);
-        this.newTicks = new ArrayList<>(128);
-        this.removeTicks = new ArrayList<>(128);
+        this.ticklist = new KList<>(4096);
+        this.newTicks = new KList<>(128);
+        this.removeTicks = new KList<>(128);
+        this.metrics = new ConcurrentHashMap<>();
+        this.windowStartMs = new AtomicLong(System.currentTimeMillis());
         ticking = false;
-        J.ar(() -> {
+        J.sr(() -> {
             if (!ticking) {
                 tick();
             }
-        }, 0);
+        }, 1);
     }
 
     public void register(Ticked ticked) {
@@ -66,44 +72,53 @@ public class Ticker {
         synchronized (newTicks) {
             newTicks.clear();
         }
+        metrics.clear();
+        windowStartMs.set(System.currentTimeMillis());
 
+    }
+
+    public void resetMetrics() {
+        metrics.clear();
+        windowStartMs.set(System.currentTimeMillis());
+    }
+
+    public long getMetricsWindowMs() {
+        return Math.max(0, System.currentTimeMillis() - windowStartMs.get());
+    }
+
+    public List<String> topMetrics(int limit) {
+        int safeLimit = Math.max(1, limit);
+        return metrics.entrySet().stream()
+                .sorted(Comparator.comparingLong((Map.Entry<String, TickMetric> e) -> e.getValue().totalNanos.get()).reversed())
+                .limit(safeLimit)
+                .map(entry -> formatMetric(entry.getKey(), entry.getValue()))
+                .toList();
     }
 
     private void tick() {
         ticking = true;
-//        int ix = 0;
-        AtomicInteger tc = new AtomicInteger(0);
-        BurstExecutor e = MultiBurst.burst.burst(ticklist.size());
         for (int i = 0; i < ticklist.size(); i++) {
-            int ii = i;
-//            ix++;
-            e.queue(() -> {
-                Ticked t = ticklist.get(ii);
-
-                if (t != null && t.shouldTick()) {
-                    tc.incrementAndGet();
-                    try {
-                        t.tick();
-                    } catch (Throwable exxx) {
-                        exxx.printStackTrace();
-                    }
+            Ticked t = ticklist.get(i);
+            if (t != null && t.shouldTick()) {
+                long start = System.nanoTime();
+                try {
+                    t.tick();
+                } catch (Throwable exxx) {
+                    exxx.printStackTrace();
+                } finally {
+                    recordMetric(t, System.nanoTime() - start);
                 }
-            });
+            }
         }
-
-        e.complete();
-//        Adapt.info(ix + "");
 
         synchronized (newTicks) {
             while (newTicks.isNotEmpty()) {
-                tc.incrementAndGet();
                 ticklist.add(newTicks.popRandom());
             }
         }
 
         synchronized (removeTicks) {
             while (removeTicks.isNotEmpty()) {
-                tc.incrementAndGet();
                 String id = removeTicks.popRandom();
 
                 for (int i = 0; i < ticklist.size(); i++) {
@@ -116,6 +131,34 @@ public class Ticker {
         }
 
         ticking = false;
-        tc.get();
+    }
+
+    private void recordMetric(Ticked ticked, long durationNs) {
+        if (ticked == null || durationNs < 0) {
+            return;
+        }
+
+        String key = ticked.getGroup() + ":" + ticked.getId();
+        TickMetric metric = metrics.computeIfAbsent(key, unused -> new TickMetric());
+        metric.calls.incrementAndGet();
+        metric.totalNanos.addAndGet(durationNs);
+        metric.maxNanos.updateAndGet(old -> Math.max(old, durationNs));
+    }
+
+    private String formatMetric(String key, TickMetric metric) {
+        long calls = Math.max(1, metric.calls.get());
+        double totalMs = metric.totalNanos.get() / 1_000_000D;
+        double avgMs = totalMs / (double) calls;
+        double maxMs = metric.maxNanos.get() / 1_000_000D;
+        return key + " total=" + String.format(Locale.US, "%.3fms", totalMs)
+                + " avg=" + String.format(Locale.US, "%.3fms", avgMs)
+                + " max=" + String.format(Locale.US, "%.3fms", maxMs)
+                + " calls=" + calls;
+    }
+
+    private static class TickMetric {
+        private final AtomicLong calls = new AtomicLong();
+        private final AtomicLong totalNanos = new AtomicLong();
+        private final AtomicLong maxNanos = new AtomicLong();
     }
 }

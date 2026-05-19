@@ -2,15 +2,20 @@ package com.volmit.adapt.command;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.Adaptation;
+import com.volmit.adapt.api.adaptation.SimpleAdaptation;
 import com.volmit.adapt.api.skill.Skill;
 import com.volmit.adapt.api.skill.SkillRegistry;
-import com.volmit.adapt.api.world.AdaptPlayer;
+import com.volmit.adapt.api.skill.SimpleSkill;
 import com.volmit.adapt.api.world.AdaptServer;
+import com.volmit.adapt.api.world.PlayerData;
+import com.volmit.adapt.content.gui.ConfigGui;
 import com.volmit.adapt.content.gui.SkillsGui;
 import com.volmit.adapt.content.item.ExperienceOrb;
 import com.volmit.adapt.content.item.KnowledgeOrb;
 import com.volmit.adapt.util.command.FConst;
+import com.volmit.adapt.util.config.ConfigMigrationManager;
 import com.volmit.adapt.util.decree.DecreeExecutor;
+import com.volmit.adapt.util.decree.DecreeOrigin;
 import com.volmit.adapt.util.decree.annotations.Decree;
 import com.volmit.adapt.util.decree.annotations.Param;
 import com.volmit.adapt.util.decree.context.AdaptationListingHandler;
@@ -23,29 +28,54 @@ import java.util.Map;
 @Decree(name = "adapt", description = "Basic Command")
 public class CommandAdapt implements DecreeExecutor {
     private CommandDebug debug;
+    private CommandClear clear;
+    private CommandReset reset;
+    private CommandDefault defaults;
 
-    @Decree(description = "Boost Target player, or Global Experience gain.")
+    @Decree(description = "Boost Target player Experience gain.")
     public void boost(
         @Param(aliases = "seconds", description = "Amount of seconds", defaultValue = "10")
         int seconds,
         @Param(aliases = "multiplier", description = "Strength of the boost ", defaultValue = "10")
-        int multiplier,
+        double multiplier,
         @Param(description = "player", defaultValue = "---", customHandler = NullablePlayerHandler.class)
         Player player
-
     ) {
         if (!sender().hasPermission("adapt.boost")) {
             FConst.error("You lack the Permission 'adapt.boost'").send(sender());
             return;
         }
 
-        AdaptServer adaptServer = Adapt.instance.getAdaptServer();
-        if (player() == null) {
-            adaptServer.boostXP(multiplier, seconds * 1000);
-        } else {
-            AdaptPlayer adaptPlayer = adaptServer.getPlayer(player);
-            adaptPlayer.boostXPToRecents(multiplier, seconds * 1000);
+        Player targetPlayer = player;
+        if (targetPlayer == null && sender().isConsole()) {
+            FConst.error("You must specify a player when using this command from console.").send(sender());
+            return;
+        } else if (targetPlayer == null) {
+            targetPlayer = player();
         }
+
+        AdaptServer adaptServer = Adapt.instance.getAdaptServer();
+        PlayerData playerData = adaptServer.getPlayer(targetPlayer).getData();
+        playerData.globalXPMultiplier(multiplier, seconds * 1000);
+
+        FConst.success("Boosted XP by " + multiplier + " for " + seconds + " seconds").send(sender());
+    }
+
+    @Decree(description = "Boost Global Experience gain.", name = "global-boost")
+    public void globalBoost(
+            @Param(aliases = "seconds", description = "Amount of seconds", defaultValue = "10")
+            int seconds,
+            @Param(aliases = "multiplier", description = "Strength of the boost ", defaultValue = "10")
+            double multiplier
+    ) {
+        if (!sender().hasPermission("adapt.boost.global")) {
+            FConst.error("You lack the Permission 'adapt.boost.global'").send(sender());
+            return;
+        }
+
+        AdaptServer adaptServer = Adapt.instance.getAdaptServer();
+        adaptServer.boostXP(multiplier, seconds * 1000);
+
         FConst.success("Boosted XP by " + multiplier + " for " + seconds + " seconds").send(sender());
     }
 
@@ -66,6 +96,7 @@ public class CommandAdapt implements DecreeExecutor {
         Player targetPlayer = player;
         if (targetPlayer == null && sender().isConsole()) {
             FConst.error("You must specify a player when using this command from console.").send(sender());
+            return;
         } else if (targetPlayer == null) {
             targetPlayer = player();
         }
@@ -91,6 +122,9 @@ public class CommandAdapt implements DecreeExecutor {
         if (guiTarget.startsWith("[Adaptation]-")) {
             for (Skill<?> skill : SkillRegistry.skills.sortV()) {
                 for (Adaptation<?> adaptation : skill.getAdaptations()) {
+                    if (!adaptation.isEnabled()) {
+                        continue;
+                    }
                     if (guiTarget.equals("[Adaptation]-" + adaptation.getName())) {
                         if (force || adaptation.openGui(targetPlayer, true)) {
                             FConst.success("Opened GUI for " + adaptation.getName() + " for " + targetPlayer.getName()).send(sender());
@@ -102,6 +136,16 @@ public class CommandAdapt implements DecreeExecutor {
                 }
             }
         }
+    }
+
+    @Decree(name = "configure", aliases = {"config", "cfg"}, origin = DecreeOrigin.PLAYER, description = "Open the in-game Adapt config editor")
+    public void configure() {
+        if (!ConfigGui.canConfigure(player())) {
+            FConst.error("You need operator status or the permission 'adapt.configurator'").send(sender());
+            return;
+        }
+
+        ConfigGui.open(player());
     }
 
     @Decree(description = "Give yourself an experience orb")
@@ -146,7 +190,7 @@ public class CommandAdapt implements DecreeExecutor {
             return;
         }
 
-        Skill<?> skill = SkillRegistry.skills.get(skillName.name());
+        Skill<?> skill = Adapt.instance.getAdaptServer().getSkillRegistry().getSkill(skillName.name());
         if (skill != null) {
             targetPlayer.getInventory().addItem(ExperienceOrb.with(skill.getName(), amount));
             FConst.success("Giving " + skill.getName() + " orb").send(sender());
@@ -193,7 +237,7 @@ public class CommandAdapt implements DecreeExecutor {
             return;
         }
 
-        Skill<?> skill = SkillRegistry.skills.get(skillName.toString());
+        Skill<?> skill = Adapt.instance.getAdaptServer().getSkillRegistry().getSkill(skillName.name());
         if(skill != null){
             targetPlayer.getInventory().addItem(KnowledgeOrb.with(skill.getName(), amount));
             FConst.success("Giving " + skill.getName() + " orb").send(sender());
@@ -220,7 +264,7 @@ public class CommandAdapt implements DecreeExecutor {
         }
 
         Player targetPlayer = player;
-        if (targetPlayer == null && sender().isPlayer()) {
+        if (targetPlayer == null && sender().isConsole()) {
             FConst.error("You must specify a player when using this command from console.").send(sender());
         } else if (targetPlayer == null) {
             targetPlayer = player();
@@ -250,6 +294,40 @@ public class CommandAdapt implements DecreeExecutor {
                 return;
             }
         }
+    }
+
+    @Decree(name = "migrate-configs", description = "Force migrate and rewrite all skill/adaptation configs to canonical TOML with comments.")
+    public void migrateConfigs() {
+        if (!sender().hasPermission("adapt.debug")) {
+            FConst.error("You lack the Permission 'adapt.debug'").send(sender());
+            return;
+        }
+
+        if (Adapt.instance.getAdaptServer() == null || Adapt.instance.getAdaptServer().getSkillRegistry() == null) {
+            FConst.error("Adapt server is not ready yet. Try again in a few seconds.").send(sender());
+            return;
+        }
+
+        int migratedSkills = 0;
+        int migratedAdaptations = 0;
+        for (Skill<?> skill : Adapt.instance.getAdaptServer().getSkillRegistry().getSkills()) {
+            if (skill instanceof SimpleSkill<?> simpleSkill) {
+                if (simpleSkill.reloadConfigFromDisk(false)) {
+                    migratedSkills++;
+                }
+            }
+
+            for (Adaptation<?> adaptation : skill.getAdaptations()) {
+                if (adaptation instanceof SimpleAdaptation<?> simpleAdaptation) {
+                    if (simpleAdaptation.reloadConfigFromDisk(false)) {
+                        migratedAdaptations++;
+                    }
+                }
+            }
+        }
+
+        int deletedLegacyJson = ConfigMigrationManager.deleteMigratedLegacyJsonFiles();
+        FConst.success("Canonicalized TOML configs. skills=" + migratedSkills + ", adaptations=" + migratedAdaptations + ", deletedLegacyJson=" + deletedLegacyJson).send(sender());
     }
 
 }

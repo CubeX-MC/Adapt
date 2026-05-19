@@ -22,13 +22,21 @@ import com.jeff_media.customblockdata.CustomBlockData;
 import com.jeff_media.customblockdata.events.CustomBlockDataMoveEvent;
 import com.jeff_media.customblockdata.events.CustomBlockDataRemoveEvent;
 import com.volmit.adapt.Adapt;
+import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
 import com.volmit.adapt.api.recipe.MaterialChar;
-import com.volmit.adapt.util.*;
+import com.volmit.adapt.api.world.AdaptStatTracker;
+import com.volmit.adapt.util.CustomModel;
+import com.volmit.adapt.util.Element;
+import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.SoundPlayer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.*;
-import org.bukkit.Tag;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
@@ -36,7 +44,9 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.block.*;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
@@ -47,7 +57,10 @@ import org.bukkit.util.BoundingBox;
 import org.bukkit.util.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config> {
     private static final NamespacedKey ELEVATOR_KEY = new NamespacedKey(Adapt.instance, "elevator");
@@ -63,8 +76,8 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
     public ArchitectElevator() {
         super("architect-elevator");
         registerConfiguration(ArchitectElevator.Config.class);
-        setDescription(Localizer.dLocalize("architect", "elevator", "description"));
-        setDisplayName(Localizer.dLocalize("architect", "elevator", "name"));
+        setDescription(Localizer.dLocalize("architect.elevator.description"));
+        setDisplayName(Localizer.dLocalize("architect.elevator.name"));
         setIcon(Material.HEAVY_WEIGHTED_PRESSURE_PLATE);
         setInterval(988);
         setBaseCost(getConfig().baseCost);
@@ -81,6 +94,23 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
                 .ingredient(new MaterialChar('Y', Material.ENDER_PEARL))
                 .result(getElevatorItem())
                 .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WHITE_WOOL)
+                .key("challenge_architect_elevator_100")
+                .title(Localizer.dLocalize("advancement.challenge_architect_elevator_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_architect_elevator_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.WHITE_WOOL)
+                        .key("challenge_architect_elevator_penthouse")
+                        .title(Localizer.dLocalize("advancement.challenge_architect_elevator_penthouse.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_architect_elevator_penthouse.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_architect_elevator_100", "architect.elevator.trips", 100, 300);
     }
 
     @Override
@@ -94,10 +124,10 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
         ItemMeta meta = elevatorItem.getItemMeta();
         if (meta != null) {
             meta.getPersistentDataContainer().set(ELEVATOR_KEY, PersistentDataType.BYTE, (byte) 0);
-            meta.setDisplayName(Localizer.dLocalize("items", "elevatorblock", "name"));
-            meta.setLore(List.of(Localizer.dLocalize("items", "elevatorblock", "usage1"),
-                    Localizer.dLocalize("items", "elevatorblock", "usage2"),
-                    Localizer.dLocalize("items", "elevatorblock", "usage3")));
+            meta.setDisplayName(Localizer.dLocalize("items.elevator_block.name"));
+            meta.setLore(List.of(Localizer.dLocalize("items.elevator_block.usage1"),
+                    Localizer.dLocalize("items.elevator_block.usage2"),
+                    Localizer.dLocalize("items.elevator_block.usage3")));
             elevatorItem.setItemMeta(meta);
         }
         return elevatorItem;
@@ -124,7 +154,7 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void on(PlayerToggleSneakEvent event) {
-        if (!event.isSneaking()) return;
+        if (!event.isSneaking() || event.getPlayer().isInsideVehicle()) return;
         Player player = event.getPlayer();
         Block block = findElevator(player);
         if (block == null) return;
@@ -292,7 +322,7 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
     }
 
     private void handleElevatorMovement(Block block, Player player, boolean down) {
-        if (!isElevator(block))
+        if (!isElevator(block) || player.isInsideVehicle())
             return;
 
         CustomBlockData data = new CustomBlockData(block, Adapt.instance);
@@ -314,6 +344,10 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
             return;
 
         teleportPlayer(player, loc);
+        getPlayer(player).getData().addStat("architect.elevator.trips", 1);
+        if (distance >= 50 && AdaptConfig.get().isAdvancements() && !getPlayer(player).getData().isGranted("challenge_architect_elevator_penthouse")) {
+            getPlayer(player).getAdvancementHandler().grant("challenge_architect_elevator_penthouse");
+        }
     }
 
     private static boolean isElevator(Block b) {
@@ -325,7 +359,7 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
 
     private static boolean hasEnoughSpace(Player player, int targetY) {
         BoundingBox box = player.getBoundingBox()
-                .shift(0, -player.getLocation().y(), 0)
+                .shift(0, -player.getLocation().getY(), 0)
                 .shift(0, targetY, 0);
 
         double maxX = Math.ceil(box.getMaxX());
@@ -357,7 +391,9 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
     }
 
     private void playTeleportEffects(Player p) {
-        p.getWorld().spawnParticle(Particle.PORTAL, p.getLocation(), PARTICLE_COUNT);
+        if (areParticlesEnabled()) {
+            p.getWorld().spawnParticle(Particle.PORTAL, p.getLocation(), PARTICLE_COUNT);
+        }
     }
 
     @Override
@@ -375,14 +411,23 @@ public class ArchitectElevator extends SimpleAdaptation<ArchitectElevator.Config
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Build wool elevators to teleport vertically.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Base Distance for the Architect Elevator adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int baseDistance = 32;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Multiplier for the Architect Elevator adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int multiplier = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.40;
     }
 }

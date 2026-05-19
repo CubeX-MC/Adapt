@@ -18,14 +18,18 @@
 
 package com.volmit.adapt.content.skill;
 
-import com.fren_gor.ultimateAdvancementAPI.advancement.display.AdvancementFrameType;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
 import com.volmit.adapt.api.advancement.AdaptAdvancement;
 import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.skill.SimpleSkill;
 import com.volmit.adapt.api.world.AdaptPlayer;
 import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.adaptation.blocking.BlockingChainArmorer;
+import com.volmit.adapt.content.adaptation.blocking.BlockingBastionStance;
+import com.volmit.adapt.content.adaptation.blocking.BlockingBulwarkBash;
+import com.volmit.adapt.content.adaptation.blocking.BlockingCounterGuard;
 import com.volmit.adapt.content.adaptation.blocking.BlockingHorseArmorer;
+import com.volmit.adapt.content.adaptation.blocking.BlockingMirrorBlock;
 import com.volmit.adapt.content.adaptation.blocking.BlockingMultiArmor;
 import com.volmit.adapt.content.adaptation.blocking.BlockingSaddlecrafter;
 import com.volmit.adapt.util.C;
@@ -37,6 +41,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -48,62 +53,147 @@ public class SkillBlocking extends SimpleSkill<SkillBlocking.Config> {
     private final Map<Player, Long> cooldowns;
 
     public SkillBlocking() {
-        super("blocking", Localizer.dLocalize("skill", "blocking", "icon"));
+        super("blocking", Localizer.dLocalize("skill.blocking.icon"));
         registerConfiguration(Config.class);
         setColor(C.DARK_GRAY);
-        setDescription(Localizer.dLocalize("skill", "blocking", "description"));
-        setDisplayName(Localizer.dLocalize("skill", "blocking", "name"));
+        setDescription(Localizer.dLocalize("skill.blocking.description"));
+        setDisplayName(Localizer.dLocalize("skill.blocking.name"));
         setInterval(5000);
         setIcon(Material.SHIELD);
         registerAdaptation(new BlockingMultiArmor());
         registerAdaptation(new BlockingChainArmorer());
         registerAdaptation(new BlockingSaddlecrafter());
         registerAdaptation(new BlockingHorseArmorer());
+        registerAdaptation(new BlockingCounterGuard());
+        registerAdaptation(new BlockingBastionStance());
+        registerAdaptation(new BlockingMirrorBlock());
+        registerAdaptation(new BlockingBulwarkBash());
         registerAdvancement(AdaptAdvancement.builder()
                 .icon(Material.LEATHER_CHESTPLATE).key("challenge_block_1k")
-                .title(Localizer.dLocalize("advancement", "challenge_block_1k", "title"))
-                .description(Localizer.dLocalize("advancement", "challenge_block_1k", "description"))
+                .title(Localizer.dLocalize("advancement.challenge_block_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_block_1k.description"))
                 .model(CustomModel.get(Material.LEATHER_CHESTPLATE, "advancement", "blocking", "challenge_block_1k"))
-                .frame(AdvancementFrameType.CHALLENGE)
+                .frame(AdaptAdvancementFrame.CHALLENGE)
                 .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                         .icon(Material.CHAINMAIL_CHESTPLATE)
                         .key("challenge_block_5k")
-                        .title(Localizer.dLocalize("advancement", "challenge_block_5k", "title"))
-                        .description(Localizer.dLocalize("advancement", "challenge_block_5k", "description"))
+                        .title(Localizer.dLocalize("advancement.challenge_block_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_block_5k.description"))
                         .model(CustomModel.get(Material.CHAINMAIL_CHESTPLATE, "advancement", "blocking", "challenge_block_5k"))
-                        .frame(AdvancementFrameType.CHALLENGE)
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
                         .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                 .icon(Material.IRON_CHESTPLATE)
                                 .key("challenge_block_50k")
-                                .title(Localizer.dLocalize("advancement", "challenge_block_50k", "title"))
-                                .description(Localizer.dLocalize("advancement", "challenge_block_50k", "description"))
+                                .title(Localizer.dLocalize("advancement.challenge_block_50k.title"))
+                                .description(Localizer.dLocalize("advancement.challenge_block_50k.description"))
                                 .model(CustomModel.get(Material.IRON_CHESTPLATE, "advancement", "blocking", "challenge_block_50k"))
-                                .frame(AdvancementFrameType.CHALLENGE)
+                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                 .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                         .icon(Material.GOLDEN_CHESTPLATE)
                                         .key("challenge_block_500k")
-                                        .title(Localizer.dLocalize("advancement", "challenge_block_500k", "title"))
-                                        .description(Localizer.dLocalize("advancement", "challenge_block_500k", "description"))
+                                        .title(Localizer.dLocalize("advancement.challenge_block_500k.title"))
+                                        .description(Localizer.dLocalize("advancement.challenge_block_500k.description"))
                                         .model(CustomModel.get(Material.GOLDEN_CHESTPLATE, "advancement", "blocking", "challenge_block_500k"))
-                                        .frame(AdvancementFrameType.CHALLENGE)
+                                        .frame(AdaptAdvancementFrame.CHALLENGE)
                                         .visibility(AdvancementVisibility.PARENT_GRANTED).child(AdaptAdvancement.builder()
                                                 .icon(Material.DIAMOND_CHESTPLATE)
                                                 .key("challenge_block_5m")
-                                                .title(Localizer.dLocalize("advancement", "challenge_block_5m", "title"))
-                                                .description(Localizer.dLocalize("advancement", "challenge_block_5m", "description"))
+                                                .title(Localizer.dLocalize("advancement.challenge_block_5m.title"))
+                                                .description(Localizer.dLocalize("advancement.challenge_block_5m.description"))
                                                 .model(CustomModel.get(Material.DIAMOND_CHESTPLATE, "advancement", "blocking", "challenge_block_5m"))
-                                                .frame(AdvancementFrameType.CHALLENGE)
+                                                .frame(AdaptAdvancementFrame.CHALLENGE)
                                                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                                                 .build())
                                         .build())
                                 .build())
                         .build())
                 .build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_block_1k").goal(1000).stat("blocked.hits").reward(getConfig().challengeBlock1kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_block_5k").goal(5000).stat("blocked.hits").reward(getConfig().challengeBlock1kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_block_50k").goal(50000).stat("blocked.hits").reward(getConfig().challengeBlock5kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_block_500k").goal(500000).stat("blocked.hits").reward(getConfig().challengeBlock5kReward).build());
-        registerStatTracker(AdaptStatTracker.builder().advancement("challenge_block_5m").goal(5000000).stat("blocked.hits").reward(getConfig().challengeBlock5kReward).build());
+        registerMilestone("challenge_block_1k", "blocked.hits", 1000, getConfig().challengeBlock1kReward);
+        registerMilestone("challenge_block_5k", "blocked.hits", 5000, getConfig().challengeBlock1kReward);
+        registerMilestone("challenge_block_50k", "blocked.hits", 50000, getConfig().challengeBlock5kReward);
+        registerMilestone("challenge_block_500k", "blocked.hits", 500000, getConfig().challengeBlock5kReward);
+        registerMilestone("challenge_block_5m", "blocked.hits", 5000000, getConfig().challengeBlock5kReward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_CHESTPLATE).key("challenge_block_dmg_1k")
+                .title(Localizer.dLocalize("advancement.challenge_block_dmg_1k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_block_dmg_1k.description"))
+                .model(CustomModel.get(Material.IRON_CHESTPLATE, "advancement", "blocking", "challenge_block_dmg_1k"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.NETHERITE_CHESTPLATE)
+                        .key("challenge_block_dmg_10k")
+                        .title(Localizer.dLocalize("advancement.challenge_block_dmg_10k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_block_dmg_10k.description"))
+                        .model(CustomModel.get(Material.NETHERITE_CHESTPLATE, "advancement", "blocking", "challenge_block_dmg_10k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_block_dmg_1k", "blocked.damage", 1000, getConfig().challengeBlock1kReward);
+        registerMilestone("challenge_block_dmg_10k", "blocked.damage", 10000, getConfig().challengeBlock5kReward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ARROW).key("challenge_block_proj_100")
+                .title(Localizer.dLocalize("advancement.challenge_block_proj_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_block_proj_100.description"))
+                .model(CustomModel.get(Material.ARROW, "advancement", "blocking", "challenge_block_proj_100"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.SPECTRAL_ARROW)
+                        .key("challenge_block_proj_1k")
+                        .title(Localizer.dLocalize("advancement.challenge_block_proj_1k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_block_proj_1k.description"))
+                        .model(CustomModel.get(Material.SPECTRAL_ARROW, "advancement", "blocking", "challenge_block_proj_1k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_block_proj_100", "blocked.projectiles", 100, getConfig().challengeBlock1kReward);
+        registerMilestone("challenge_block_proj_1k", "blocked.projectiles", 1000, getConfig().challengeBlock5kReward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_SWORD).key("challenge_block_melee_500")
+                .title(Localizer.dLocalize("advancement.challenge_block_melee_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_block_melee_500.description"))
+                .model(CustomModel.get(Material.IRON_SWORD, "advancement", "blocking", "challenge_block_melee_500"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.NETHERITE_SWORD)
+                        .key("challenge_block_melee_5k")
+                        .title(Localizer.dLocalize("advancement.challenge_block_melee_5k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_block_melee_5k.description"))
+                        .model(CustomModel.get(Material.NETHERITE_SWORD, "advancement", "blocking", "challenge_block_melee_5k"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_block_melee_500", "blocked.melee", 500, getConfig().challengeBlock1kReward);
+        registerMilestone("challenge_block_melee_5k", "blocked.melee", 5000, getConfig().challengeBlock5kReward);
+
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.DIAMOND_CHESTPLATE).key("challenge_block_heavy_50")
+                .title(Localizer.dLocalize("advancement.challenge_block_heavy_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_block_heavy_50.description"))
+                .model(CustomModel.get(Material.DIAMOND_CHESTPLATE, "advancement", "blocking", "challenge_block_heavy_50"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.NETHERITE_CHESTPLATE)
+                        .key("challenge_block_heavy_500")
+                        .title(Localizer.dLocalize("advancement.challenge_block_heavy_500.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_block_heavy_500.description"))
+                        .model(CustomModel.get(Material.NETHERITE_CHESTPLATE, "advancement", "blocking", "challenge_block_heavy_500"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_block_heavy_50", "blocked.heavy", 50, getConfig().challengeBlock1kReward);
+        registerMilestone("challenge_block_heavy_500", "blocked.heavy", 500, getConfig().challengeBlock5kReward);
+
         cooldowns = new HashMap<>();
     }
 
@@ -128,6 +218,14 @@ public class SkillBlocking extends SimpleSkill<SkillBlocking.Config> {
                     AdaptPlayer adaptPlayer = getPlayer(p);
                     adaptPlayer.getData().addStat("blocked.hits", 1);
                     adaptPlayer.getData().addStat("blocked.damage", e.getDamage());
+                    if (e.getDamager() instanceof Projectile) {
+                        adaptPlayer.getData().addStat("blocked.projectiles", 1);
+                    } else {
+                        adaptPlayer.getData().addStat("blocked.melee", 1);
+                    }
+                    if (e.getDamage() > 5) {
+                        adaptPlayer.getData().addStat("blocked.heavy", 1);
+                    }
 
                     handleCooldown(p, () -> {
                         xp(p, getConfig().xpOnBlockedAttack);
@@ -145,12 +243,12 @@ public class SkillBlocking extends SimpleSkill<SkillBlocking.Config> {
             return;
         }
 
-        for (Player i : Bukkit.getOnlinePlayers()) {
-            AdaptPlayer adaptPlayer = getPlayer(i);
+        for (AdaptPlayer adaptPlayer : getServer().getOnlineAdaptPlayerSnapshot()) {
+            Player i = adaptPlayer.getPlayer();
             shouldReturnForPlayer(i, () -> {
                 checkStatTrackers(adaptPlayer);
-                if (i.getPlayer() != null && (i.getPlayer().getInventory().getItemInOffHand().getType().equals(Material.SHIELD) || i.getPlayer().getInventory().getItemInMainHand().getType().equals(Material.SHIELD))) {
-                    xpSilent(i, getConfig().passiveXpForUsingShield);
+                if (getConfig().passiveXpForUsingShield > 0 && (i.getInventory().getItemInOffHand().getType().equals(Material.SHIELD) || i.getInventory().getItemInMainHand().getType().equals(Material.SHIELD))) {
+                    xpSilent(i, getConfig().passiveXpForUsingShield, "blocking:shield-hold");
                 }
             });
         }
@@ -164,11 +262,17 @@ public class SkillBlocking extends SimpleSkill<SkillBlocking.Config> {
 
     @NoArgsConstructor
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
-        double xpOnBlockedAttack = 10;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Xp On Blocked Attack for the Blocking skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        double xpOnBlockedAttack = 25;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Block1k Reward for the Blocking skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double challengeBlock1kReward = 500;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Block5k Reward for the Blocking skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double challengeBlock5kReward = 2000;
-        long cooldownDelay = 3000;
-        long passiveXpForUsingShield = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Cooldown Delay for the Blocking skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        long cooldownDelay = 1500;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Passive Xp For Using Shield for the Blocking skill.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
+        long passiveXpForUsingShield = 0;
     }
 }

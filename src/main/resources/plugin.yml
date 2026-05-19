@@ -5,25 +5,13 @@ authors:
   - NextdoorPsycho
   - Cyberpwn
   - Vatuu
-api-version: '${apiversion}'
+api-version: '${apiVersion}'
 softdepend:
   - PlaceholderAPI
   - WorldGuard
   - Factions
   - ChestProtect
   - Residence
-libraries:
-  - com.googlecode.concurrentlinkedhashmap:concurrentlinkedhashmap-lru:1.4.2
-  - org.apache.commons:commons-lang3:3.12.0
-  - com.google.code.gson:gson:2.8.9
-  - com.elmakers.mine.bukkit:EffectLib:9.4
-  - net.kyori:adventure-platform-bukkit:4.3.0
-  - net.kyori:adventure-api:4.13.1
-  - net.kyori:adventure-text-minimessage:4.13.1
-  - it.unimi.dsi:fastutil:8.5.13
-  - fr.skytasul:glowingentities:1.4.1
-  - io.lettuce:lettuce-core:6.5.1.RELEASE
-  - com.github.ben-manes.caffeine:caffeine:3.0.6
 
 commands:
   adapt: {}
@@ -46,6 +34,17 @@ permissions:
     default: op
   adapt.main:
     description: Allows for you to use the main command
+    default: op
+  adapt.configurator:
+    description: Allows opening and using the in-game Adapt config editor
+    default: op
+  adapt.config:
+    description: Legacy alias for adapt.configurator
+    default: false
+    children:
+      adapt.configurator: true
+  adapt.clear:
+    description: Allows clearing player progression data
     default: op
   adapt.blacklist.agility:
     description: Blacklist the skill Agility
@@ -184,6 +183,22 @@ permissions:
         default: false
       adapt.blacklist.craftingxp:
         description: Blacklist the adaptation CraftingXP
+        default: false
+  adapt.blacklist.chronos:
+    description: Blacklist the skill Chronos
+    default: false
+    children:
+      adapt.blacklist.chronostimebottle:
+        description: Blacklist the adaptation ChronosTimeInABottle
+        default: false
+      adapt.blacklist.chronosaberranttouch:
+        description: Blacklist the adaptation ChronosAberrantTouch
+        default: false
+      adapt.blacklist.chronosinstantrecall:
+        description: Blacklist the adaptation ChronosInstantRecall
+        default: false
+      adapt.blacklist.chronostimebomb:
+        description: Blacklist the adaptation ChronosTimeBomb
         default: false
   adapt.blacklist.discovery:
     description: Blacklist the skill Discovery

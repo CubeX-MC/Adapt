@@ -19,11 +19,17 @@
 package com.volmit.adapt.content.adaptation.hunter;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.content.item.ItemListings;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
 import com.volmit.adapt.util.SoundPlayer;
+import com.volmit.adapt.util.collection.KList;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -43,15 +49,23 @@ public class HunterDropToInventory extends SimpleAdaptation<HunterDropToInventor
     public HunterDropToInventory() {
         super("hunter-drop-to-inventory");
         registerConfiguration(HunterDropToInventory.Config.class);
-        setDescription(Localizer.dLocalize("hunter", "droptoinventory", "description"));
-        setDisplayName(Localizer.dLocalize("hunter", "droptoinventory", "name"));
-        setIcon(Material.DIRT);
+        setDescription(Localizer.dLocalize("hunter.drop_to_inventory.description"));
+        setDisplayName(Localizer.dLocalize("hunter.drop_to_inventory.name"));
+        setIcon(Material.TRAPPED_CHEST);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
         setInterval(18440);
-
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.CHEST)
+                .key("challenge_hunter_dti_10k")
+                .title(Localizer.dLocalize("advancement.challenge_hunter_dti_10k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_hunter_dti_10k.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_hunter_dti_10k", "hunter.drop-to-inv.items-caught", 10000, 500);
     }
 
     @Override
@@ -60,7 +74,7 @@ public class HunterDropToInventory extends SimpleAdaptation<HunterDropToInventor
     }
 
     public void addStats(int level, Element v) {
-        v.addLore(C.GRAY + Localizer.dLocalize("hunter", "droptoinventory", "lore1"));
+        v.addLore(C.GRAY + Localizer.dLocalize("hunter.drop_to_inventory.lore1"));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -83,7 +97,7 @@ public class HunterDropToInventory extends SimpleAdaptation<HunterDropToInventor
             return;
         }
         if (ItemListings.toolSwords.contains(p.getInventory().getItemInMainHand().getType())) {
-            List<Item> items = e.getItems().copy();
+            List<Item> items = new KList<>(e.getItems());
             e.getItems().clear();
             sp.play(p.getLocation(), Sound.BLOCK_CALCITE_HIT, 0.05f, 0.01f);
             for (Item i : items) {
@@ -91,6 +105,7 @@ public class HunterDropToInventory extends SimpleAdaptation<HunterDropToInventor
                     p.getWorld().dropItem(p.getLocation(), i.getItemStack());
                 }
             }
+            getPlayer(p).getData().addStat("hunter.drop-to-inv.items-caught", items.size());
         }
     }
 
@@ -110,12 +125,14 @@ public class HunterDropToInventory extends SimpleAdaptation<HunterDropToInventor
         if (e.getEntity().getKiller() != null && e.getEntity().getKiller().getClass().getSimpleName().equals("CraftPlayer")) {
             SoundPlayer sp = SoundPlayer.of(p);
             sp.play(p.getLocation(), Sound.BLOCK_CALCITE_HIT, 0.05f, 0.01f);
+            int itemCount = e.getDrops().size();
             e.getDrops().forEach(i -> {
                 if (!p.getInventory().addItem(i).isEmpty()) {
                     p.getWorld().dropItem(p.getLocation(), i);
                 }
             });
             e.getDrops().clear();
+            getPlayer(p).getData().addStat("hunter.drop-to-inv.items-caught", itemCount);
         }
     }
 
@@ -130,12 +147,19 @@ public class HunterDropToInventory extends SimpleAdaptation<HunterDropToInventor
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Mob and block drops teleport directly into your inventory.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
     }
 }

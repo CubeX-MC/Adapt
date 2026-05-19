@@ -20,10 +20,16 @@ package com.volmit.adapt.content.adaptation.enchanting;
 
 import com.volmit.adapt.Adapt;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
 import com.volmit.adapt.util.SoundPlayer;
+import com.volmit.adapt.util.collection.KMap;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -39,25 +45,36 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 public class EnchantingQuickEnchant extends SimpleAdaptation<EnchantingQuickEnchant.Config> {
-    private final List<Integer> holds = new ArrayList<>();
-
     public EnchantingQuickEnchant() {
         super("enchanting-quick-enchant");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("enchanting", "quickenchant", "description"));
-        setDisplayName(Localizer.dLocalize("enchanting", "quickenchant", "name"));
+        setDescription(Localizer.dLocalize("enchanting.quick_enchant.description"));
+        setDisplayName(Localizer.dLocalize("enchanting.quick_enchant.name"));
         setIcon(Material.WRITABLE_BOOK);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(15100);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.ENCHANTED_BOOK)
+                .key("challenge_enchanting_quick_100")
+                .title(Localizer.dLocalize("advancement.challenge_enchanting_quick_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_enchanting_quick_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.BOOKSHELF)
+                        .key("challenge_enchanting_quick_1k")
+                        .title(Localizer.dLocalize("advancement.challenge_enchanting_quick_1k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_enchanting_quick_1k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_enchanting_quick_100", "enchanting.quick-enchant.books-applied", 100, 300);
+        registerMilestone("challenge_enchanting_quick_1k", "enchanting.quick-enchant.books-applied", 1000, 1000);
     }
 
     private int getTotalLevelCount(int level) {
@@ -66,7 +83,7 @@ public class EnchantingQuickEnchant extends SimpleAdaptation<EnchantingQuickEnch
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + getTotalLevelCount(level) + C.GRAY + " " + Localizer.dLocalize("enchanting", "quickenchant", "lore1"));
+        v.addLore(C.GREEN + "+ " + getTotalLevelCount(level) + C.GRAY + " " + Localizer.dLocalize("enchanting.quick_enchant.lore1"));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -93,12 +110,12 @@ public class EnchantingQuickEnchant extends SimpleAdaptation<EnchantingQuickEnch
                 && e.getCursor().getAmount() == 1) {
             ItemStack item = e.getCurrentItem();
             ItemStack book = e.getCursor();
-            Map<Enchantment, Integer> itemEnchants = new HashMap<>(item.getType().equals(Material.ENCHANTED_BOOK)
+            KMap<Enchantment, Integer> itemEnchants = new KMap<>(item.getType().equals(Material.ENCHANTED_BOOK)
                     ? ((EnchantmentStorageMeta) item.getItemMeta()).getStoredEnchants()
                     : item.getEnchantments());
-            Map<Enchantment, Integer> bookEnchants = new HashMap<>(eb.getStoredEnchants());
-            Map<Enchantment, Integer> newEnchants = itemEnchants.copy();
-            Map<Enchantment, Integer> addEnchants = new HashMap<>();
+            KMap<Enchantment, Integer> bookEnchants = new KMap<>(eb.getStoredEnchants());
+            KMap<Enchantment, Integer> newEnchants = itemEnchants.copy();
+            KMap<Enchantment, Integer> addEnchants = new KMap<>();
             int power = itemEnchants.values().stream().mapToInt(i -> i).sum();
 
             if (bookEnchants.isEmpty()) {
@@ -118,7 +135,7 @@ public class EnchantingQuickEnchant extends SimpleAdaptation<EnchantingQuickEnch
 
             SoundPlayer sp = SoundPlayer.of(p);
             if (power > getTotalLevelCount(getLevel(p))) {
-                Adapt.actionbar(p, C.RED + Localizer.dLocalize("enchanting", "quickenchant", "lore2") + getTotalLevelCount(getLevel(p)) + " " + Localizer.dLocalize("enchanting", "quickenchant", "lore3"));
+                Adapt.actionbar(p, C.RED + Localizer.dLocalize("enchanting.quick_enchant.lore2") + getTotalLevelCount(getLevel(p)) + " " + Localizer.dLocalize("enchanting.quick_enchant.lore3"));
                 sp.play(p.getLocation(), Sound.BLOCK_CONDUIT_DEACTIVATE, 0.5f, 1.7f);
                 return;
             }
@@ -140,9 +157,10 @@ public class EnchantingQuickEnchant extends SimpleAdaptation<EnchantingQuickEnch
                 item.setItemMeta(im);
                 e.setCurrentItem(item);
                 e.setCancelled(true);
+                getPlayer(p).getData().addStat("enchanting.quick-enchant.books-applied", 1);
                 sp.play(p.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1f, 1.7f);
                 sp.play(p.getLocation(), Sound.BLOCK_DEEPSLATE_TILES_BREAK, 0.5f, 0.7f);
-                getSkill().xp(p, 320 * addEnchants.values().stream().mapToInt((i) -> i).sum());
+                xp(p, 320 * addEnchants.values().stream().mapToInt((i) -> i).sum(), "quick-apply");
 
                 if (bookEnchants.isEmpty()) {
                     e.setCursor(null);
@@ -172,14 +190,23 @@ public class EnchantingQuickEnchant extends SimpleAdaptation<EnchantingQuickEnch
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Enchant items by clicking enchant books directly on them.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 6;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 8;
-        double costFactor = 1.355;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        double costFactor = 0.9;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Power Bonus Limit for the Enchanting Quick Enchant adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int maxPowerBonusLimit = 4;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Max Power Bonus1Per Levels for the Enchanting Quick Enchant adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         int maxPowerBonus1PerLevels = 3;
     }
 }

@@ -41,16 +41,16 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Data
 public class VirtualDecreeCommand {
     private final Class<?> type;
     private final VirtualDecreeCommand parent;
-    private final List<VirtualDecreeCommand> nodes;
+    private final KList<VirtualDecreeCommand> nodes;
     private final DecreeNode node;
     String[] gradients = new String[]{
             "<gradient:#f5bc42:#45b32d>",
@@ -62,7 +62,7 @@ public class VirtualDecreeCommand {
     };
     private ChronoLatch cl = new ChronoLatch(1000);
 
-    private VirtualDecreeCommand(Class<?> type, VirtualDecreeCommand parent, List<VirtualDecreeCommand> nodes, DecreeNode node) {
+    private VirtualDecreeCommand(Class<?> type, VirtualDecreeCommand parent, KList<VirtualDecreeCommand> nodes, DecreeNode node) {
         this.parent = parent;
         this.type = type;
         this.nodes = nodes;
@@ -105,7 +105,7 @@ public class VirtualDecreeCommand {
                 continue;
             }
 
-            c.getNodes().add(new VirtualDecreeCommand(v.getClass(), c, new ArrayList<>(), new DecreeNode(v, i)));
+            c.getNodes().add(new VirtualDecreeCommand(v.getClass(), c, new KList<>(), new DecreeNode(v, i)));
         }
 
         return c;
@@ -124,7 +124,7 @@ public class VirtualDecreeCommand {
     }
 
     public String getPath() {
-        List<String> n = new ArrayList<>();
+        KList<String> n = new KList<>();
         VirtualDecreeCommand cursor = this;
 
         while (cursor.getParent() != null) {
@@ -172,14 +172,14 @@ public class VirtualDecreeCommand {
         return node != null;
     }
 
-    public KList<String> tabComplete(List<String> args, String raw) {
+    public KList<String> tabComplete(KList<String> args, String raw) {
         KList<Integer> skip = new KList<>();
         KList<String> tabs = new KList<>();
         invokeTabComplete(args, skip, tabs, raw);
         return tabs;
     }
 
-    private boolean invokeTabComplete(List<String> args, List<Integer> skip, List<String> tabs, String raw) {
+    private boolean invokeTabComplete(KList<String> args, KList<Integer> skip, KList<String> tabs, String raw) {
         if (isNode()) {
             tab(args, tabs);
             skip.add(hashCode());
@@ -281,8 +281,8 @@ public class VirtualDecreeCommand {
      * @param in     The input
      * @return A map of all the parameter names and their values
      */
-    private KMap<String, Object> map(VolmitSender sender, List<String> in) {
-        KMap<String, Object> data = new KMap<>();
+    private KMap<String, Optional<Object>> map(VolmitSender sender, List<String> in) {
+        KMap<String, Optional<Object>> data = new KMap<>();
         List<Integer> nowhich = new ArrayList<>();
 
         List<String> unknownInputs = new ArrayList<>(in.stream().filter(s -> !s.contains("=")).collect(Collectors.toList()));
@@ -331,7 +331,7 @@ public class VirtualDecreeCommand {
             key = param.getName();
 
             try {
-                data.put(key, param.getHandler().parse(value, nowhich.contains(original))); //Parse and put
+                data.put(key, Optional.ofNullable(param.getHandler().parse(value, nowhich.contains(original)))); //Parse and put
             } catch (DecreeParsingException e) {
                 Adapt.debug("Can't parse parameter value for " + key + "=" + value + " in " + getPath() + " using handler " + param.getHandler().getClass().getSimpleName());
                 sender.sendMessage(C.RED + "Cannot convert \"" + value + "\" into a " + param.getType().getSimpleName());
@@ -351,7 +351,7 @@ public class VirtualDecreeCommand {
                 DecreeParameter par = decreeParameters.get(x);
 
                 try {
-                    data.put(par.getName(), par.getHandler().parse(stringParam, nowhich.contains(original)));
+                    data.put(par.getName(), Optional.ofNullable(par.getHandler().parse(stringParam, nowhich.contains(original))));
                 } catch (DecreeParsingException e) {
                     Adapt.debug("Can't parse parameter value for " + par.getName() + "=" + stringParam + " in " + getPath() + " using handler " + par.getHandler().getClass().getSimpleName());
                     sender.sendMessage(C.RED + "Cannot convert \"" + stringParam + "\" into a " + par.getType().getSimpleName());
@@ -366,11 +366,11 @@ public class VirtualDecreeCommand {
         return data;
     }
 
-    public boolean invoke(VolmitSender sender, List<String> realArgs) {
-        return invoke(sender, realArgs, new ArrayList<>());
+    public boolean invoke(VolmitSender sender, KList<String> realArgs) {
+        return invoke(sender, realArgs, new KList<>());
     }
 
-    public boolean invoke(VolmitSender sender, List<String> args, List<Integer> skip) {
+    public boolean invoke(VolmitSender sender, KList<String> args, List<Integer> skip) {
         Adapt.debug("@ " + getPath() + " with " + args.toString(", "));
         if (isNode()) {
             Adapt.debug("Invoke " + getPath() + "(" + args.toString(",") + ") at ");
@@ -408,7 +408,7 @@ public class VirtualDecreeCommand {
         return false;
     }
 
-    private boolean invokeNode(VolmitSender sender, KMap<String, Object> map) {
+    private boolean invokeNode(VolmitSender sender, KMap<String, Optional<Object>> map) {
         if (map == null) {
             return false;
         }
@@ -416,7 +416,7 @@ public class VirtualDecreeCommand {
         Object[] params = new Object[getNode().getMethod().getParameterCount()];
         int vm = 0;
         for (DecreeParameter i : getNode().getParameters()) {
-            Object value = map.get(i.getName());
+            Object value = map.getOrDefault(i.getName(), Optional.empty()).orElse(null);
 
             try {
                 if (value == null && i.hasDefault()) {

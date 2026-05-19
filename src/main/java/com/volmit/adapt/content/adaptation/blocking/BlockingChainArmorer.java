@@ -19,13 +19,21 @@
 package com.volmit.adapt.content.adaptation.blocking;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
 import com.volmit.adapt.api.recipe.AdaptRecipe;
 import com.volmit.adapt.api.recipe.MaterialChar;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
@@ -35,8 +43,8 @@ public class BlockingChainArmorer extends SimpleAdaptation<BlockingChainArmorer.
     public BlockingChainArmorer() {
         super("blocking-chainarmorer");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("blocking", "chainarmorer", "description"));
-        setDisplayName(Localizer.dLocalize("blocking", "chainarmorer", "name"));
+        setDescription(Localizer.dLocalize("blocking.chain_armorer.description"));
+        setDisplayName(Localizer.dLocalize("blocking.chain_armorer.name"));
         setIcon(Material.CHAINMAIL_CHESTPLATE);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
@@ -77,11 +85,30 @@ public class BlockingChainArmorer extends SimpleAdaptation<BlockingChainArmorer.
                         "I I"))
                 .result(new ItemStack(Material.CHAINMAIL_HELMET, 1))
                 .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.CHAINMAIL_CHESTPLATE)
+                .key("challenge_blocking_chain_25")
+                .title(Localizer.dLocalize("advancement.challenge_blocking_chain_25.title"))
+                .description(Localizer.dLocalize("advancement.challenge_blocking_chain_25.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_blocking_chain_25", "blocking.chain-armorer.pieces-crafted", 25, 400);
+    }
+
+    @EventHandler
+    public void on(CraftItemEvent e) {
+        if (e.isCancelled()) {
+            return;
+        }
+        if (e.getWhoClicked() instanceof Player p && hasAdaptation(p) && isAdaptationRecipe(e.getRecipe())) {
+            getPlayer(p).getData().addStat("blocking.chain-armorer.pieces-crafted", 1);
+        }
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("blocking", "chainarmorer", "lore1"));
+        v.addLore(C.GREEN + "+ " + C.GRAY + Localizer.dLocalize("blocking.chain_armorer.lore1"));
     }
 
 
@@ -100,12 +127,19 @@ public class BlockingChainArmorer extends SimpleAdaptation<BlockingChainArmorer.
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Craft Chainmail Armor using iron nuggets.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0;
     }
 }

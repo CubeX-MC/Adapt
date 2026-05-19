@@ -18,12 +18,14 @@
 
 package com.volmit.adapt.content.adaptation.ranged;
 
-import com.fren_gor.ultimateAdvancementAPI.advancement.display.AdvancementFrameType;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
 import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
 import com.volmit.adapt.api.advancement.AdaptAdvancement;
 import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -39,9 +41,9 @@ public class RangedForce extends SimpleAdaptation<RangedForce.Config> {
     public RangedForce() {
         super("ranged-force");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("ranged", "forceshot", "description"));
-        setDisplayName(Localizer.dLocalize("ranged", "forceshot", "name"));
-        setIcon(Material.ARROW);
+        setDescription(Localizer.dLocalize("ranged.force_shot.description"));
+        setDisplayName(Localizer.dLocalize("ranged.force_shot.name"));
+        setIcon(Material.TIPPED_ARROW);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInterval(4900);
@@ -50,16 +52,25 @@ public class RangedForce extends SimpleAdaptation<RangedForce.Config> {
         registerAdvancement(AdaptAdvancement.builder()
                 .icon(Material.SPECTRAL_ARROW)
                 .key("challenge_force_30")
-                .title(Localizer.dLocalize("ranged", "forceshot", "advancementname"))
-                .description(Localizer.dLocalize("ranged", "forceshot", "advancementlore"))
-                .frame(AdvancementFrameType.CHALLENGE)
+                .title(Localizer.dLocalize("ranged.force_shot.advancementname"))
+                .description(Localizer.dLocalize("ranged.force_shot.advancementlore"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
                 .visibility(AdvancementVisibility.PARENT_GRANTED)
                 .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.SPECTRAL_ARROW)
+                .key("challenge_ranged_force_500")
+                .title(Localizer.dLocalize("advancement.challenge_ranged_force_500.title"))
+                .description(Localizer.dLocalize("advancement.challenge_ranged_force_500.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_ranged_force_500", "ranged.force.long-range-hits", 500, 500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Form.pc(getSpeed(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("ranged", "forceshot", "lore1"));
+        v.addLore(C.GREEN + "+ " + Form.pc(getSpeed(getLevelPercent(level)), 0) + C.GRAY + " " + Localizer.dLocalize("ranged.force_shot.lore1"));
     }
 
     private double getSpeed(double factor) {
@@ -71,16 +82,21 @@ public class RangedForce extends SimpleAdaptation<RangedForce.Config> {
         if (e.isCancelled()) {
             return;
         }
-        if (e.getDamager() instanceof Projectile r && r.getShooter() instanceof Player p && hasAdaptation(p) && !getPlayer(p).getData().isGranted("challenge_force_30")) {
+        if (e.getDamager() instanceof Projectile r && r.getShooter() instanceof Player p && hasAdaptation(p)) {
             Location a = e.getEntity().getLocation().clone();
             Location b = p.getLocation().clone();
             a.setY(0);
             b.setY(0);
             xp(p, 5);
+            double distSq = a.distanceSquared(b);
 
-            if (a.distanceSquared(b) > 10 && AdaptConfig.get().isAdvancements()) {
+            if (distSq > 10 && AdaptConfig.get().isAdvancements() && !getPlayer(p).getData().isGranted("challenge_force_30")) {
                 getPlayer(p).getAdvancementHandler().grant("challenge_force_30");
-                getSkill().xp(p, getConfig().challengeRewardLongShotReward);
+                xp(p, getConfig().challengeRewardLongShotReward, "challenge-long-shot");
+            }
+
+            if (distSq > 900) {
+                getPlayer(p).getData().addStat("ranged.force.long-range-hits", 1);
             }
         }
     }
@@ -116,14 +132,23 @@ public class RangedForce extends SimpleAdaptation<RangedForce.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Shoot projectiles further and faster.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 7;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.225;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Challenge Reward Long Shot Reward for the Ranged Force adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double challengeRewardLongShotReward = 2000;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Speed Factor for the Ranged Force adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         double speedFactor = 1.135;
     }
 }

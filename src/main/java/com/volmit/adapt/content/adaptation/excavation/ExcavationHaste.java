@@ -19,10 +19,15 @@
 package com.volmit.adapt.content.adaptation.excavation;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
-import com.volmit.adapt.util.reflect.enums.PotionEffectTypes;
+import com.volmit.adapt.util.reflect.registries.PotionEffectTypes;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -35,20 +40,38 @@ public class ExcavationHaste extends SimpleAdaptation<ExcavationHaste.Config> {
     public ExcavationHaste() {
         super("excavation-haste");
         registerConfiguration(ExcavationHaste.Config.class);
-        setDisplayName(Localizer.dLocalize("excavation", "haste", "name"));
-        setDescription(Localizer.dLocalize("excavation", "haste", "description"));
+        setDisplayName(Localizer.dLocalize("excavation.haste.name"));
+        setDescription(Localizer.dLocalize("excavation.haste.description"));
         setIcon(Material.GOLDEN_PICKAXE);
         setInterval(4388);
         setBaseCost(getConfig().baseCost);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setCostFactor(getConfig().costFactor);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_SHOVEL)
+                .key("challenge_excavation_haste_5k")
+                .title(Localizer.dLocalize("advancement.challenge_excavation_haste_5k.title"))
+                .description(Localizer.dLocalize("advancement.challenge_excavation_haste_5k.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .child(AdaptAdvancement.builder()
+                        .icon(Material.DIAMOND_SHOVEL)
+                        .key("challenge_excavation_haste_50k")
+                        .title(Localizer.dLocalize("advancement.challenge_excavation_haste_50k.title"))
+                        .description(Localizer.dLocalize("advancement.challenge_excavation_haste_50k.description"))
+                        .frame(AdaptAdvancementFrame.CHALLENGE)
+                        .visibility(AdvancementVisibility.PARENT_GRANTED)
+                        .build())
+                .build());
+        registerMilestone("challenge_excavation_haste_5k", "excavation.haste.blocks-while-hasted", 5000, 400);
+        registerMilestone("challenge_excavation_haste_50k", "excavation.haste.blocks-while-hasted", 50000, 1500);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + Localizer.dLocalize("excavation", "haste", "lore1"));
-        v.addLore(C.GREEN + "" + (level) + C.GRAY + Localizer.dLocalize("excavation", "haste", "lore2"));
+        v.addLore(C.GREEN + Localizer.dLocalize("excavation.haste.lore1"));
+        v.addLore(C.GREEN + "" + (level) + C.GRAY + Localizer.dLocalize("excavation.haste.lore2"));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -64,6 +87,7 @@ public class ExcavationHaste extends SimpleAdaptation<ExcavationHaste.Config> {
             return;
         }
         p.addPotionEffect(new PotionEffect(PotionEffectTypes.FAST_DIGGING, 15, getLevel(p), false, false, true));
+        getPlayer(p).getData().addStat("excavation.haste.blocks-while-hasted", 1);
     }
 
 
@@ -83,12 +107,19 @@ public class ExcavationHaste extends SimpleAdaptation<ExcavationHaste.Config> {
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Gain Haste while excavating blocks.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 2;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 0.3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 3;
     }
 }

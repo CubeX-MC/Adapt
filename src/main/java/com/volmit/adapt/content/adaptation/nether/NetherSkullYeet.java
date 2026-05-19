@@ -18,19 +18,28 @@
 
 package com.volmit.adapt.content.adaptation.nether;
 
+import com.volmit.adapt.AdaptConfig;
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.world.AdaptStatTracker;
 import com.volmit.adapt.util.*;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.WitherSkull;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -46,21 +55,47 @@ public class NetherSkullYeet extends SimpleAdaptation<NetherSkullYeet.Config> {
     public NetherSkullYeet() {
         super("nether-skull-toss");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("nether", "skulltoss", "description1") + C.ITALIC + " " + Localizer.dLocalize("nether", "skulltoss", "description2") + " " + C.GRAY + Localizer.dLocalize("nether", "skulltoss", "description3"));
-        setDisplayName(Localizer.dLocalize("nether", "skulltoss", "name"));
+        setDescription(Localizer.dLocalize("nether.skull_toss.description1") + C.ITALIC + " " + Localizer.dLocalize("nether.skull_toss.description2") + " " + C.GRAY + Localizer.dLocalize("nether.skull_toss.description3"));
+        setDisplayName(Localizer.dLocalize("nether.skull_toss.name"));
         setIcon(Material.WITHER_SKELETON_SKULL);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
         setMaxLevel(getConfig().maxLevel);
         setInitialCost(getConfig().initialCost);
         setInterval(2314);
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WITHER_SKELETON_SKULL)
+                .key("challenge_nether_skull_100")
+                .title(Localizer.dLocalize("advancement.challenge_nether_skull_100.title"))
+                .description(Localizer.dLocalize("advancement.challenge_nether_skull_100.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WITHER_SKELETON_SKULL)
+                .key("challenge_nether_skull_kills_50")
+                .title(Localizer.dLocalize("advancement.challenge_nether_skull_kills_50.title"))
+                .description(Localizer.dLocalize("advancement.challenge_nether_skull_kills_50.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.WITHER_SKELETON_SKULL)
+                .key("challenge_nether_skull_long_bomb")
+                .title(Localizer.dLocalize("advancement.challenge_nether_skull_long_bomb.title"))
+                .description(Localizer.dLocalize("advancement.challenge_nether_skull_long_bomb.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.HIDDEN)
+                .build());
+        registerMilestone("challenge_nether_skull_100", "nether.skull-yeet.skulls-thrown", 100, 300);
+        registerMilestone("challenge_nether_skull_kills_50", "nether.skull-yeet.skull-kills", 50, 500);
     }
 
     @Override
     public void addStats(int level, Element v) {
         int chance = getConfig().getBaseCooldown() - getConfig().getLevelCooldown() * level;
-        v.addLore(C.GREEN + String.valueOf(chance) + C.GRAY + " " + Localizer.dLocalize("nether", "skulltoss", "lore1"));
-        v.addLore(C.GRAY + Localizer.dLocalize("nether", "skulltoss", "lore2") + C.DARK_GRAY + Localizer.dLocalize("nether", "skulltoss", "lore3") + C.GRAY + ", " + Localizer.dLocalize("nether", "skulltoss", "lore4"));
+        v.addLore(C.GREEN + String.valueOf(chance) + C.GRAY + " " + Localizer.dLocalize("nether.skull_toss.lore1"));
+        v.addLore(C.GRAY + Localizer.dLocalize("nether.skull_toss.lore2") + C.DARK_GRAY + Localizer.dLocalize("nether.skull_toss.lore3") + C.GRAY + ", " + Localizer.dLocalize("nether.skull_toss.lore4"));
     }
 
     private int getCooldownDuration(Player p) {
@@ -126,6 +161,23 @@ public class NetherSkullYeet extends SimpleAdaptation<NetherSkullYeet.Config> {
             entity.setShooter(p);
             xp(p, 100);
         });
+        getPlayer(p).getData().addStat("nether.skull-yeet.skulls-thrown", 1);
+    }
+
+    @EventHandler
+    public void onEntityDeath(EntityDeathEvent e) {
+        LivingEntity dead = e.getEntity();
+        if (dead.getLastDamageCause() instanceof EntityDamageByEntityEvent dbe
+                && dbe.getDamager() instanceof WitherSkull skull
+                && skull.getShooter() instanceof Player p
+                && hasAdaptation(p)) {
+            getPlayer(p).getData().addStat("nether.skull-yeet.skull-kills", 1);
+
+            double distance = p.getLocation().distance(dead.getLocation());
+            if (distance >= 40 && AdaptConfig.get().isAdvancements() && !getPlayer(p).getData().isGranted("challenge_nether_skull_long_bomb")) {
+                getPlayer(p).getAdvancementHandler().grant("challenge_nether_skull_long_bomb");
+            }
+        }
     }
 
     @Override
@@ -146,14 +198,23 @@ public class NetherSkullYeet extends SimpleAdaptation<NetherSkullYeet.Config> {
 
     @Data
     @NoArgsConstructor
+    @ConfigDescription("Throw Wither Skulls that explode on impact.")
     public static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         public boolean permanent = false;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         private boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Base Cooldown for the Nether Skull Yeet adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         private int baseCooldown = 15;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Controls Level Cooldown for the Nether Skull Yeet adaptation.", impact = "Higher values usually increase intensity, limits, or frequency; lower values reduce it.")
         private int levelCooldown = 5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         private int baseCost = 10;
-        private double costFactor = 1.5;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
+        private double costFactor = 0.92;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         private int maxLevel = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         private int initialCost = 5;
     }
 }

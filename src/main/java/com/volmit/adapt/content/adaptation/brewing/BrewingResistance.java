@@ -19,14 +19,24 @@
 package com.volmit.adapt.content.adaptation.brewing;
 
 import com.volmit.adapt.api.adaptation.SimpleAdaptation;
+import com.volmit.adapt.api.advancement.AdaptAdvancement;
+import com.volmit.adapt.api.advancement.AdaptAdvancementFrame;
+import com.volmit.adapt.api.advancement.AdvancementVisibility;
+import com.volmit.adapt.api.data.WorldData;
 import com.volmit.adapt.api.potion.BrewingRecipe;
 import com.volmit.adapt.api.potion.PotionBuilder;
+import com.volmit.adapt.api.world.AdaptStatTracker;
+import com.volmit.adapt.content.matter.BrewingStandOwner;
 import com.volmit.adapt.util.C;
 import com.volmit.adapt.util.Element;
 import com.volmit.adapt.util.Localizer;
+import com.volmit.adapt.util.config.ConfigDescription;
 import lombok.NoArgsConstructor;
 import org.bukkit.Color;
 import org.bukkit.Material;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 
@@ -35,8 +45,8 @@ public class BrewingResistance extends SimpleAdaptation<BrewingResistance.Config
     public BrewingResistance() {
         super("brewing-resistance");
         registerConfiguration(Config.class);
-        setDescription(Localizer.dLocalize("brewing", "resistance", "description"));
-        setDisplayName(Localizer.dLocalize("brewing", "resistance", "name"));
+        setDescription(Localizer.dLocalize("brewing.resistance.description"));
+        setDisplayName(Localizer.dLocalize("brewing.resistance.name"));
         setIcon(Material.IRON_BLOCK);
         setBaseCost(getConfig().baseCost);
         setCostFactor(getConfig().costFactor);
@@ -48,11 +58,11 @@ public class BrewingResistance extends SimpleAdaptation<BrewingResistance.Config
                 .brewingTime(320)
                 .fuelCost(16)
                 .ingredient(Material.IRON_INGOT)
-                .basePotion(PotionBuilder.vanilla(PotionBuilder.Type.REGULAR, PotionType.AWKWARD, false, false))
+                .basePotion(PotionBuilder.vanilla(PotionBuilder.Type.REGULAR, PotionType.AWKWARD))
                 .result(PotionBuilder.of(PotionBuilder.Type.REGULAR)
                         .setName("Bottled Resistance")
                         .setColor(Color.WHITE)
-                        .addEffect(PotionEffectType.ABSORPTION, 1200, 1, true, true, true)
+                        .addEffect(PotionEffectType.RESISTANCE, 1200, 1, true, true, true)
                         .build())
                 .build());
         registerBrewingRecipe(BrewingRecipe.builder()
@@ -60,21 +70,40 @@ public class BrewingResistance extends SimpleAdaptation<BrewingResistance.Config
                 .brewingTime(320)
                 .fuelCost(32)
                 .ingredient(Material.IRON_BLOCK)
-                .basePotion(PotionBuilder.vanilla(PotionBuilder.Type.REGULAR, PotionType.AWKWARD, false, false))
+                .basePotion(PotionBuilder.vanilla(PotionBuilder.Type.REGULAR, PotionType.AWKWARD))
                 .result(PotionBuilder.of(PotionBuilder.Type.REGULAR)
                         .setName("Bottled Resistance 2")
                         .setColor(Color.WHITE)
-                        .addEffect(PotionEffectType.ABSORPTION, 600, 2, true, true, true)
+                        .addEffect(PotionEffectType.RESISTANCE, 600, 2, true, true, true)
                         .build())
                 .build());
+        registerAdvancement(AdaptAdvancement.builder()
+                .icon(Material.IRON_CHESTPLATE)
+                .key("challenge_brewing_resistance_25")
+                .title(Localizer.dLocalize("advancement.challenge_brewing_resistance_25.title"))
+                .description(Localizer.dLocalize("advancement.challenge_brewing_resistance_25.description"))
+                .frame(AdaptAdvancementFrame.CHALLENGE)
+                .visibility(AdvancementVisibility.PARENT_GRANTED)
+                .build());
+        registerMilestone("challenge_brewing_resistance_25", "brewing.resistance.potions-brewed", 25, 300);
     }
 
     @Override
     public void addStats(int level, Element v) {
-        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("brewing", "resistance", "lore1"));
-        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("brewing", "resistance", "lore2"));
+        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("brewing.resistance.lore1"));
+        v.addLore(C.GREEN + "+ " + Localizer.dLocalize("brewing.resistance.lore2"));
     }
 
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void on(BrewEvent e) {
+        if (e.isCancelled()) {
+            return;
+        }
+        BrewingStandOwner owner = WorldData.of(e.getBlock().getWorld()).get(e.getBlock(), BrewingStandOwner.class);
+        if (owner != null) {
+            getServer().peekData(owner.getOwner()).addStat("brewing.resistance.potions-brewed", 1);
+        }
+    }
 
     @Override
     public void onTick() {
@@ -92,12 +121,19 @@ public class BrewingResistance extends SimpleAdaptation<BrewingResistance.Config
     }
 
     @NoArgsConstructor
+    @ConfigDescription("Brew a Potion of Resistance from Awkward Potion and Iron.")
     protected static class Config {
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Keeps this adaptation permanently active once learned.", impact = "True removes the normal learn/unlearn flow and treats it as always learned.")
         boolean permanent = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Enables or disables this feature.", impact = "Set to false to disable behavior without uninstalling files.")
         boolean enabled = true;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Base knowledge cost used when learning this adaptation.", impact = "Higher values make each level cost more knowledge.")
         int baseCost = 3;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Scaling factor applied to higher adaptation levels.", impact = "Higher values increase level-to-level cost growth.")
         double costFactor = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Maximum level a player can reach for this adaptation.", impact = "Higher values allow more levels; lower values cap progression sooner.")
         int maxLevel = 1;
+        @com.volmit.adapt.util.config.ConfigDoc(value = "Knowledge cost required to purchase level 1.", impact = "Higher values make unlocking the first level more expensive.")
         int initialCost = 2;
     }
 }
